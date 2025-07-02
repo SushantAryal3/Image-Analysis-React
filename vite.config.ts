@@ -2,10 +2,12 @@ import { defineConfig } from 'vite';
 import dotenv from 'dotenv';
 import { domToCodePlugin } from 'dom-to-code/vite';
 import react from '@vitejs/plugin-react';
+import tsconfigPaths from 'vite-tsconfig-paths';
+
 dotenv.config();
 export default defineConfig({
   base: '/Image-Analysis-React/',
-  plugins: [react()],
+  plugins: [react(), tsconfigPaths()],
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
     alias: {

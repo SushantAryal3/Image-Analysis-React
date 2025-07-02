@@ -1,7 +1,9 @@
+import RGBThresholdMask from 'CustomComponents/RGBThresholdMask';
+
 export default function App() {
   return (
     <>
-      <div>Main Page</div>
+      <RGBThresholdMask />
     </>
   );
 }

@@ -1,0 +1,201 @@
+/* eslint-disable no-multi-assign, react-hooks/exhaustive-deps, jsx-a11y/label-has-associated-control */
+
+import { useRef, useState, useEffect } from 'react';
+import SliderGroup from './SliderGroup';
+import CanvasPair from './CanvasPair';
+import SavedSettingsTable from './SavedSettingsTable';
+
+export type Range2 = [number, number];
+
+export default function RGBThresholdMask() {
+  const uploadRef = useRef<HTMLInputElement>(null);
+  const colorSpaceRef = useRef<HTMLSelectElement>(null);
+  const origCanvasRef = useRef<HTMLCanvasElement>(null);
+  const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [minSize, setMinSize] = useState(50);
+
+  const [imgData, setImgData] = useState<ImageData | null>(null);
+  const [filename, setFilename] = useState('');
+  const [brushSize, setBrushSize] = useState(10);
+
+  const [rRange, setRRange] = useState<Range2>([70, 195]);
+  const [gRange, setGRange] = useState<Range2>([110, 255]);
+  const [bRange, setBRange] = useState<Range2>([8, 100]);
+  const [hRange, setHRange] = useState<Range2>([0, 360]);
+  const [sRange, setSRange] = useState<Range2>([0, 100]);
+  const [vRange, setVRange] = useState<Range2>([0, 100]);
+
+  const [savedRGB, setSavedRGB] = useState<any[]>([]);
+  const [savedHSV, setSavedHSV] = useState<any[]>([]);
+  const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
+
+  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const url = URL.createObjectURL(file);
+
+    setFilename(file.name.replace(/\.[^/.]+$/, ''));
+    const img = new Image();
+    img.onload = () => {
+      const oc = origCanvasRef.current!;
+      const octx = oc.getContext('2d')!;
+      oc.width = img.width;
+      oc.height = img.height;
+      octx.drawImage(img, 0, 0);
+
+      const mc = maskCanvasRef.current!;
+      mc.width = img.width;
+      mc.height = img.height;
+      setImgData(octx.getImageData(0, 0, img.width, img.height));
+      URL.revokeObjectURL(url);
+    };
+    img.src = url;
+  };
+
+  const applyMask = () => {
+    if (!imgData) return;
+    const { data } = imgData;
+    const w = imgData.width;
+    const h = imgData.height;
+    const out = new Uint8ClampedArray(data.length);
+    const cs = colorSpace;
+    const [r0, r1] = rRange;
+    const [g0, g1] = gRange;
+    const [b0, b1] = bRange;
+    const [h0, h1] = hRange;
+    const [s0, s1] = sRange.map((v) => v / 100);
+    const [v0, v1] = vRange.map((v) => v / 100);
+
+    for (let i = 0; i < data.length; i += 4) {
+      const R = data[i];
+      const G = data[i + 1];
+      const B = data[i + 2];
+      let pass = false;
+      if (cs === 'RGB') {
+        pass = R >= r0 && R <= r1 && G >= g0 && G <= g1 && B >= b0 && B <= b1;
+      } else {
+        const r = R / 255;
+        const g = G / 255;
+        const b = B / 255;
+        const mx = Math.max(r, g, b);
+        const mn = Math.min(r, g, b);
+        const d = mx - mn;
+        let hh = 0;
+        if (d > 0) {
+          if (mx === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          else if (mx === g) hh = ((b - r) / d + 2) / 6;
+          else hh = ((r - g) / d + 4) / 6;
+        }
+        const ss = mx === 0 ? 0 : d / mx;
+        const vv = mx;
+        pass = hh * 360 >= h0 && hh * 360 <= h1 && ss >= s0 && ss <= s1 && vv >= v0 && vv <= v1;
+      }
+      if (pass) {
+        out[i] = R;
+        out[i + 1] = G;
+        out[i + 2] = B;
+        out[i + 3] = 255;
+      } else {
+        out[i] = out[i + 1] = out[i + 2] = 255;
+        out[i + 3] = 255;
+      }
+    }
+    const mctx = maskCanvasRef.current!.getContext('2d')!;
+    mctx.putImageData(new ImageData(out, w, h), 0, 0);
+  };
+
+  useEffect(() => {
+    applyMask();
+  }, [imgData, rRange, gRange, bRange, hRange, sRange, vRange, colorSpace]);
+
+  const saveSettings = () => {
+    const cs = colorSpaceRef.current?.value;
+    const rec = { name: filename, ...(cs === 'RGB' ? { rRange, gRange, bRange } : { hRange, sRange, vRange }) };
+    if (cs === 'RGB') setSavedRGB((prev) => [...prev.filter((r) => r.name !== filename), rec]);
+    else setSavedHSV((prev) => [...prev.filter((h) => h.name !== filename), rec]);
+  };
+
+  const applySaved = (rec: any) => {
+    if ('rRange' in rec) {
+      setRRange(rec.rRange);
+      setGRange(rec.gRange);
+      setBRange(rec.bRange);
+      colorSpaceRef.current!.value = 'RGB';
+    } else {
+      setHRange(rec.hRange);
+      setSRange(rec.sRange);
+      setVRange(rec.vRange);
+      colorSpaceRef.current!.value = 'HSV';
+    }
+  };
+
+  const downloadMask = () => {
+    const link = document.createElement('a');
+    link.download = `${filename}_masked.png`;
+    link.href = maskCanvasRef.current!.toDataURL('image/png');
+    link.click();
+    saveSettings();
+  };
+
+  return (
+    <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
+      <h3 className="text-3xl text-center">Interactive RGB/HSV Threshold Mask</h3>
+      <input
+        type="file"
+        ref={uploadRef}
+        onChange={handleUpload}
+        accept="image/*"
+        className="block w-full text-sm text-gray-700 file:bg-blue-500 file:text-white file:py-2 file:px-4 file:rounded-full"
+      />
+
+      <div className="flex items-center space-x-2">
+        <label className="font-medium" htmlFor="valueFor">
+          Color Space:
+        </label>
+        <select
+          id="valueFor"
+          value={colorSpace}
+          onChange={(e) => setColorSpace(e.target.value as 'RGB' | 'HSV')}
+          className="border border-gray-300 rounded px-3 py-2"
+        >
+          <option value="RGB">RGB</option>
+          <option value="HSV">HSV</option>
+        </select>
+      </div>
+
+      <SliderGroup
+        colorSpace={colorSpace}
+        rRange={rRange}
+        setRRange={setRRange}
+        gRange={gRange}
+        setGRange={setGRange}
+        bRange={bRange}
+        setBRange={setBRange}
+        hRange={hRange}
+        setHRange={setHRange}
+        sRange={sRange}
+        setSRange={setSRange}
+        vRange={vRange}
+        setVRange={setVRange}
+      />
+
+      <CanvasPair
+        origCanvasRef={origCanvasRef}
+        maskCanvasRef={maskCanvasRef}
+        brushSize={brushSize}
+        onBrushSizeChange={setBrushSize}
+        downloadMask={downloadMask}
+      />
+
+      <button
+        onClick={saveSettings}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+        type="button"
+      >
+        Save Current Settings
+      </button>
+
+      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} onApply={applySaved} />
+    </div>
+  );
+}
