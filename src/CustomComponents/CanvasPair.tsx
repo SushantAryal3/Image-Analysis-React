@@ -1,3 +1,4 @@
+/* eslint-disable jsx-a11y/label-has-associated-control */
 import { useState } from 'react';
 
 interface Props {
@@ -6,6 +7,8 @@ interface Props {
   brushSize: number;
   onBrushSizeChange: (n: number) => void;
   downloadMask: () => void;
+  minSize: number;
+  onMinSizeChange: (n: number) => void;
 }
 
 export default function CanvasPair({
@@ -14,6 +17,8 @@ export default function CanvasPair({
   brushSize,
   onBrushSizeChange,
   downloadMask,
+  minSize,
+  onMinSizeChange,
 }: Props) {
   const [broomState, changeBroomState] = useState<Boolean>(false);
   const handleBrush = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -56,18 +61,34 @@ export default function CanvasPair({
         </button>
         {broomState && (
           <div className="absolute top-2 left-2">
-            <div className="mt-4 flex items-center space-x-2">
-              <label className="font-medium" htmlFor="brushSize">
-                Brush Size: <span className="font-semibold">{brushSize}</span>
-              </label>
-              <input
-                id="brushSize"
-                type="range"
-                min={2}
-                max={300}
-                value={brushSize}
-                onChange={(e) => onBrushSizeChange(+e.target.value)}
-              />
+            <div className="flex justify-center items-center gap-4">
+              <div className="mt-4 flex items-center justify-center">
+                <label className="font-medium" htmlFor="brushSize">
+                  Brush Size: <span className="font-semibold">{brushSize}</span>
+                </label>
+                <input
+                  id="brushSize"
+                  type="range"
+                  min={2}
+                  max={300}
+                  value={brushSize}
+                  onChange={(e) => onBrushSizeChange(+e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="font-medium mr-2" htmlFor="noiseThreshold">
+                  Noise Threshold:
+                </label>
+                <input
+                  id="noiseThreshold"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={minSize}
+                  onChange={(e) => onMinSizeChange(Number(e.target.value))}
+                  className="mt-1 w-16 border rounded px-1"
+                />
+              </div>
             </div>
           </div>
         )}

@@ -1,6 +1,7 @@
 /* eslint-disable no-multi-assign, react-hooks/exhaustive-deps, jsx-a11y/label-has-associated-control */
 
 import { useRef, useState, useEffect } from 'react';
+import removeSmallIslands from 'Utils/cleanup';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
 import SavedSettingsTable from './SavedSettingsTable';
@@ -12,7 +13,7 @@ export default function RGBThresholdMask() {
   const colorSpaceRef = useRef<HTMLSelectElement>(null);
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  // const [minSize, setMinSize] = useState(50);
+  const [minSize, setMinSize] = useState(50);
 
   const [imgData, setImgData] = useState<ImageData | null>(null);
   const [filename, setFilename] = useState('');
@@ -101,12 +102,14 @@ export default function RGBThresholdMask() {
       }
     }
     const mctx = maskCanvasRef.current!.getContext('2d')!;
-    mctx.putImageData(new ImageData(out, w, h), 0, 0);
+    const rawMask = new ImageData(out, w, h);
+    const cleaned = removeSmallIslands(rawMask, minSize);
+    mctx.putImageData(cleaned, 0, 0);
   };
 
   useEffect(() => {
     applyMask();
-  }, [imgData, rRange, gRange, bRange, hRange, sRange, vRange, colorSpace]);
+  }, [imgData, rRange, gRange, bRange, hRange, sRange, vRange, colorSpace, minSize]);
 
   const saveSettings = () => {
     const cs = colorSpaceRef.current?.value;
@@ -185,6 +188,8 @@ export default function RGBThresholdMask() {
         brushSize={brushSize}
         onBrushSizeChange={setBrushSize}
         downloadMask={downloadMask}
+        minSize={minSize}
+        onMinSizeChange={setMinSize}
       />
 
       <button
