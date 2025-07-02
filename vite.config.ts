@@ -5,14 +5,7 @@ import react from '@vitejs/plugin-react';
 dotenv.config();
 export default defineConfig({
   base: '/image-analysis-react/',
-  plugins: [
-    react(),
-    process.env.NODE_ENV !== 'production'
-      ? domToCodePlugin({
-          mode: 'react',
-        })
-      : undefined,
-  ],
+  plugins: [react()],
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
     alias: {
@@ -37,19 +30,7 @@ export default defineConfig({
       '@Validation': '/src/validation',
     },
   },
-  define: {
-    'process.env': {
-      API_URL: process.env.API_URL,
-      SITE_NAME: process.env.SITE_NAME,
-      FAST_API: process.env.FAST_API,
-      HWCW_URL: process.env.HWCW_URL,
-      MUNICIPALITY_CODE: process.env.MUNICIPALITY_CODE,
-      MUNICIPALITY_BOUND: process.env.MUNICIPALITY_BOUND,
-      DISTRICT_BOUND: process.env.DISTRICT_BOUND,
-      DISTRICT_CODE: process.env.DISTRICT_CODE,
-      COUNTRY_BOUND: process.env.COUNTRY_BOUND,
-    },
-  },
+  define: {},
   server: {
     open: true,
     port: 3040,
