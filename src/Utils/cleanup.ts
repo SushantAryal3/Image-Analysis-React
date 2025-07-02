@@ -1,7 +1,6 @@
 export default function removeSmallIslands(maskData: ImageData, minSize: number): ImageData {
   const { width: w, height: h, data } = maskData;
   const out = new Uint8ClampedArray(data);
-
   const parent: Record<number, number> = {};
   function find(id: number): number {
     if (parent[id] !== id) parent[id] = find(parent[id]);

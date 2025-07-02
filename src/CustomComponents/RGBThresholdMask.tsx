@@ -29,7 +29,6 @@ export default function RGBThresholdMask() {
   const [savedRGB, setSavedRGB] = useState<any[]>([]);
   const [savedHSV, setSavedHSV] = useState<any[]>([]);
   const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
-
   const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -112,23 +111,29 @@ export default function RGBThresholdMask() {
   }, [imgData, rRange, gRange, bRange, hRange, sRange, vRange, colorSpace, minSize]);
 
   const saveSettings = () => {
-    const cs = colorSpaceRef.current?.value;
-    const rec = { name: filename, ...(cs === 'RGB' ? { rRange, gRange, bRange } : { hRange, sRange, vRange }) };
-    if (cs === 'RGB') setSavedRGB((prev) => [...prev.filter((r) => r.name !== filename), rec]);
-    else setSavedHSV((prev) => [...prev.filter((h) => h.name !== filename), rec]);
+    const cs = colorSpace;
+    const rec = {
+      name: filename,
+      ...(cs === 'RGB' ? { rRange, gRange, bRange } : { hRange, sRange, vRange }),
+    };
+    if (cs === 'RGB') {
+      setSavedRGB((prev) => [...prev.filter((r) => r.name !== filename), rec]);
+    } else {
+      setSavedHSV((prev) => [...prev.filter((h) => h.name !== filename), rec]);
+    }
   };
 
   const applySaved = (rec: any) => {
     if ('rRange' in rec) {
+      setColorSpace('RGB');
       setRRange(rec.rRange);
       setGRange(rec.gRange);
       setBRange(rec.bRange);
-      colorSpaceRef.current!.value = 'RGB';
     } else {
+      setColorSpace('HSV');
       setHRange(rec.hRange);
       setSRange(rec.sRange);
       setVRange(rec.vRange);
-      colorSpaceRef.current!.value = 'HSV';
     }
   };
 
@@ -150,13 +155,11 @@ export default function RGBThresholdMask() {
         accept="image/*"
         className="block w-full text-sm text-gray-700 file:bg-blue-500 file:text-white file:py-2 file:px-4 file:rounded-full"
       />
-
       <div className="flex items-center space-x-2">
         <label className="font-medium" htmlFor="valueFor">
           Color Space:
         </label>
         <select
-          id="valueFor"
           value={colorSpace}
           onChange={(e) => setColorSpace(e.target.value as 'RGB' | 'HSV')}
           className="border border-gray-300 rounded px-3 py-2"
@@ -165,7 +168,6 @@ export default function RGBThresholdMask() {
           <option value="HSV">HSV</option>
         </select>
       </div>
-
       <SliderGroup
         colorSpace={colorSpace}
         rRange={rRange}
@@ -181,7 +183,6 @@ export default function RGBThresholdMask() {
         vRange={vRange}
         setVRange={setVRange}
       />
-
       <CanvasPair
         origCanvasRef={origCanvasRef}
         maskCanvasRef={maskCanvasRef}
@@ -191,7 +192,6 @@ export default function RGBThresholdMask() {
         minSize={minSize}
         onMinSizeChange={setMinSize}
       />
-
       <button
         onClick={saveSettings}
         className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
@@ -199,8 +199,7 @@ export default function RGBThresholdMask() {
       >
         Save Current Settings
       </button>
-
-      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} onApply={applySaved} />
+      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} colorSpace={colorSpace} onApply={applySaved} />
     </div>
   );
 }
