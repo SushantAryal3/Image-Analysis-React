@@ -12,7 +12,7 @@ export default function RGBThresholdMask() {
   const colorSpaceRef = useRef<HTMLSelectElement>(null);
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [minSize, setMinSize] = useState(50);
+  // const [minSize, setMinSize] = useState(50);
 
   const [imgData, setImgData] = useState<ImageData | null>(null);
   const [filename, setFilename] = useState('');
