@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.0.0",
   "type": "module",
-  "homepage": "http://SushantAryal3.github.io/image-analysis-react",
+  "homepage": "http://SushantAryal3.github.io/Image-Analysis-React",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

@@ -4,7 +4,7 @@ import { domToCodePlugin } from 'dom-to-code/vite';
 import react from '@vitejs/plugin-react';
 dotenv.config();
 export default defineConfig({
-  base: '/image-analysis-react/',
+  base: '/Image-Analysis-React/',
   plugins: [react()],
   resolve: {
     extensions: ['.js', '.jsx', '.ts', '.tsx'],
