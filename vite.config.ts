@@ -1,11 +1,10 @@
 import { defineConfig } from 'vite';
 import dotenv from 'dotenv';
-// import reactRefresh from '@vitejs/plugin-react-refresh';
 import { domToCodePlugin } from 'dom-to-code/vite';
 import react from '@vitejs/plugin-react';
 dotenv.config();
 export default defineConfig({
-  base: '/',
+  base: '/image-analysis-react/',
   plugins: [
     react(),
     process.env.NODE_ENV !== 'production'
