@@ -19,6 +19,7 @@ module.exports = {
     camelcase: 'off',
     'prettier/prettier': 'error',
     'no-console': 'error',
+    'no-shadow': 'off',
     'react/react-in-jsx-scope': 0,
     // '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
     'react/jsx-props-no-spreading': ['warn', { custom: 'ignore' }],

@@ -4,6 +4,7 @@ import removeSmallIslands from 'Utils/cleanup';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
 import SavedSettingsTable from './SavedSettingsTable';
+import { HistogramChart } from './Histogram';
 
 export type Range2 = [number, number];
 
@@ -11,6 +12,7 @@ export default function RGBThresholdMask() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [imageData, setImageData] = useState<ImageData | null>(null);
 
   const imageDataRef = useRef<ImageData | null>(null);
   const maskDataRef = useRef<Uint8ClampedArray | null>(null);
@@ -140,7 +142,7 @@ export default function RGBThresholdMask() {
         mc.height = img.height;
 
         imageDataRef.current = octx.getImageData(0, 0, img.width, img.height);
-
+        setImageData(imageDataRef.current);
         maskDataRef.current = new Uint8ClampedArray(imageDataRef.current.data.length);
 
         URL.revokeObjectURL(url);
@@ -194,7 +196,6 @@ export default function RGBThresholdMask() {
   useEffect(() => {
     return cleanupImageData;
   }, [cleanupImageData]);
-
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
       <h3 className="text-3xl text-center">Interactive RGB/HSV Threshold Mask</h3>
@@ -218,6 +219,20 @@ export default function RGBThresholdMask() {
           <option value="HSV">HSV</option>
         </select>
       </div>
+      {colorSpace === 'RGB' && imageData && (
+        <>
+          <HistogramChart imageData={imageData} channel="r" selection={rRange} />
+          <HistogramChart imageData={imageData} channel="g" selection={gRange} />
+          <HistogramChart imageData={imageData} channel="b" selection={bRange} />
+        </>
+      )}
+      {colorSpace === 'HSV' && imageData && (
+        <>
+          <HistogramChart imageData={imageData} channel="h" selection={hRange} />
+          <HistogramChart imageData={imageData} channel="s" selection={sRange} />
+          <HistogramChart imageData={imageData} channel="v" selection={vRange} />
+        </>
+      )}
       <SliderGroup
         colorSpace={colorSpace}
         rRange={rRange}

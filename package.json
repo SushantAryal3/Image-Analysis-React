@@ -43,11 +43,15 @@
     ]
   },
   "dependencies": {
+    "chart.js": "^4.5.0",
+    "chartjs-plugin-annotation": "^2.2.1",
     "dom-to-code": "^1.5.4",
     "dotenv": "^17.0.1",
     "rc-slider": "^11.1.8",
     "react": "^19.1.0",
+    "react-chartjs-2": "^5.3.0",
     "react-dom": "^19.1.0",
+    "recharts": "^3.0.2",
     "victory": "^37.3.6",
     "victory-histogram": "^37.3.6"
   }
