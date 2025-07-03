@@ -16,6 +16,7 @@ module.exports = {
   },
   plugins: ['react-hooks', 'prettier'],
   rules: {
+    camelcase: 'off',
     'prettier/prettier': 'error',
     'no-console': 'error',
     'react/react-in-jsx-scope': 0,

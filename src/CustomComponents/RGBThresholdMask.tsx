@@ -1,6 +1,5 @@
-/* eslint-disable no-multi-assign, react-hooks/exhaustive-deps, jsx-a11y/label-has-associated-control */
-
-import { useRef, useState, useEffect } from 'react';
+/* eslint-disable no-multi-assign, react-hooks/exhaustive-deps, jsx-a11y/label-has-associated-control, camelcase */
+import { useRef, useState, useEffect, useCallback } from 'react';
 import removeSmallIslands from 'Utils/cleanup';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
@@ -10,12 +9,13 @@ export type Range2 = [number, number];
 
 export default function RGBThresholdMask() {
   const uploadRef = useRef<HTMLInputElement>(null);
-  const colorSpaceRef = useRef<HTMLSelectElement>(null);
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [minSize, setMinSize] = useState(50);
 
-  const [imgData, setImgData] = useState<ImageData | null>(null);
+  const imageDataRef = useRef<ImageData | null>(null);
+  const maskDataRef = useRef<Uint8ClampedArray | null>(null);
+
+  const [minSize, setMinSize] = useState(50);
   const [filename, setFilename] = useState('');
   const [brushSize, setBrushSize] = useState(10);
 
@@ -29,88 +29,134 @@ export default function RGBThresholdMask() {
   const [savedRGB, setSavedRGB] = useState<any[]>([]);
   const [savedHSV, setSavedHSV] = useState<any[]>([]);
   const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
-  const handleUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
 
-    setFilename(file.name.replace(/\.[^/.]+$/, ''));
-    const img = new Image();
-    img.onload = () => {
-      const oc = origCanvasRef.current!;
-      const octx = oc.getContext('2d')!;
-      oc.width = img.width;
-      oc.height = img.height;
-      octx.drawImage(img, 0, 0);
+  const cleanupImageData = useCallback(() => {
+    imageDataRef.current = null;
+    maskDataRef.current = null;
+    if (window.gc) window.gc();
+  }, []);
+  const applyMask = useCallback(() => {
+    const imgData = imageDataRef.current;
+    if (!imgData || !maskDataRef.current) return;
 
-      const mc = maskCanvasRef.current!;
-      mc.width = img.width;
-      mc.height = img.height;
-      setImgData(octx.getImageData(0, 0, img.width, img.height));
-      URL.revokeObjectURL(url);
-    };
-    img.src = url;
-  };
-
-  const applyMask = () => {
-    if (!imgData) return;
     const { data } = imgData;
     const w = imgData.width;
     const h = imgData.height;
-    const out = new Uint8ClampedArray(data.length);
+    const out = maskDataRef.current;
     const cs = colorSpace;
+
     const [r0, r1] = rRange;
     const [g0, g1] = gRange;
     const [b0, b1] = bRange;
     const [h0, h1] = hRange;
-    const [s0, s1] = sRange.map((v) => v / 100);
-    const [v0, v1] = vRange.map((v) => v / 100);
+    const [s0, s1] = sRange;
+    const [v0, v1] = vRange;
 
-    for (let i = 0; i < data.length; i += 4) {
-      const R = data[i];
-      const G = data[i + 1];
-      const B = data[i + 2];
-      let pass = false;
-      if (cs === 'RGB') {
-        pass = R >= r0 && R <= r1 && G >= g0 && G <= g1 && B >= b0 && B <= b1;
-      } else {
+    const s0_norm = s0 / 100;
+    const s1_norm = s1 / 100;
+    const v0_norm = v0 / 100;
+    const v1_norm = v1 / 100;
+
+    if (cs === 'RGB') {
+      for (let i = 0; i < data.length; i += 4) {
+        const R = data[i];
+        const G = data[i + 1];
+        const B = data[i + 2];
+
+        if (R >= r0 && R <= r1 && G >= g0 && G <= g1 && B >= b0 && B <= b1) {
+          out[i] = R;
+          out[i + 1] = G;
+          out[i + 2] = B;
+          out[i + 3] = 255;
+        } else {
+          out[i] = out[i + 1] = out[i + 2] = 255;
+          out[i + 3] = 255;
+        }
+      }
+    } else {
+      for (let i = 0; i < data.length; i += 4) {
+        const R = data[i];
+        const G = data[i + 1];
+        const B = data[i + 2];
+
         const r = R / 255;
         const g = G / 255;
         const b = B / 255;
+
         const mx = Math.max(r, g, b);
         const mn = Math.min(r, g, b);
         const d = mx - mn;
+
         let hh = 0;
         if (d > 0) {
           if (mx === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
           else if (mx === g) hh = ((b - r) / d + 2) / 6;
           else hh = ((r - g) / d + 4) / 6;
         }
+
         const ss = mx === 0 ? 0 : d / mx;
         const vv = mx;
-        pass = hh * 360 >= h0 && hh * 360 <= h1 && ss >= s0 && ss <= s1 && vv >= v0 && vv <= v1;
-      }
-      if (pass) {
-        out[i] = R;
-        out[i + 1] = G;
-        out[i + 2] = B;
-        out[i + 3] = 255;
-      } else {
-        out[i] = out[i + 1] = out[i + 2] = 255;
-        out[i + 3] = 255;
+        const h_deg = hh * 360;
+
+        if (h_deg >= h0 && h_deg <= h1 && ss >= s0_norm && ss <= s1_norm && vv >= v0_norm && vv <= v1_norm) {
+          out[i] = R;
+          out[i + 1] = G;
+          out[i + 2] = B;
+          out[i + 3] = 255;
+        } else {
+          out[i] = out[i + 1] = out[i + 2] = 255;
+          out[i + 3] = 255;
+        }
       }
     }
+
     const mctx = maskCanvasRef.current!.getContext('2d')!;
     const rawMask = new ImageData(out, w, h);
     const cleaned = removeSmallIslands(rawMask, minSize);
     mctx.putImageData(cleaned, 0, 0);
-  };
+  }, [colorSpace, rRange, gRange, bRange, hRange, sRange, vRange, minSize]);
+
+  const handleUpload = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      cleanupImageData();
+
+      const url = URL.createObjectURL(file);
+      setFilename(file.name.replace(/\.[^/.]+$/, ''));
+
+      const img = new Image();
+      img.onload = () => {
+        const oc = origCanvasRef.current!;
+        const octx = oc.getContext('2d')!;
+
+        oc.width = img.width;
+        oc.height = img.height;
+        octx.drawImage(img, 0, 0);
+
+        const mc = maskCanvasRef.current!;
+        mc.width = img.width;
+        mc.height = img.height;
+
+        imageDataRef.current = octx.getImageData(0, 0, img.width, img.height);
+
+        maskDataRef.current = new Uint8ClampedArray(imageDataRef.current.data.length);
+
+        URL.revokeObjectURL(url);
+
+        setTimeout(() => applyMask(), 0);
+      };
+      img.src = url;
+    },
+    [cleanupImageData],
+  );
 
   useEffect(() => {
     applyMask();
-  }, [imgData, rRange, gRange, bRange, hRange, sRange, vRange, colorSpace, minSize]);
+  }, [applyMask]);
 
-  const saveSettings = () => {
+  const saveSettings = useCallback(() => {
     const cs = colorSpace;
     const rec = {
       name: filename,
@@ -121,9 +167,9 @@ export default function RGBThresholdMask() {
     } else {
       setSavedHSV((prev) => [...prev.filter((h) => h.name !== filename), rec]);
     }
-  };
+  }, [colorSpace, filename, rRange, gRange, bRange, hRange, sRange, vRange]);
 
-  const applySaved = (rec: any) => {
+  const applySaved = useCallback((rec: any) => {
     if ('rRange' in rec) {
       setColorSpace('RGB');
       setRRange(rec.rRange);
@@ -135,15 +181,19 @@ export default function RGBThresholdMask() {
       setSRange(rec.sRange);
       setVRange(rec.vRange);
     }
-  };
+  }, []);
 
-  const downloadMask = () => {
+  const downloadMask = useCallback(() => {
     const link = document.createElement('a');
     link.download = `${filename}_masked.png`;
     link.href = maskCanvasRef.current!.toDataURL('image/png');
     link.click();
     saveSettings();
-  };
+  }, [filename, saveSettings]);
+
+  useEffect(() => {
+    return cleanupImageData;
+  }, [cleanupImageData]);
 
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
