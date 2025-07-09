@@ -4,7 +4,6 @@ import removeSmallIslands from 'Utils/cleanup';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
 import SavedSettingsTable from './SavedSettingsTable';
-import { HistogramChart } from './Histogram';
 
 export type Range2 = [number, number];
 
@@ -31,6 +30,9 @@ export default function RGBThresholdMask() {
   const [savedRGB, setSavedRGB] = useState<any[]>([]);
   const [savedHSV, setSavedHSV] = useState<any[]>([]);
   const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
+  const [stats, setStats] = useState<
+    { name: string; plant: number; noise: number; total: number; width: number; height: number }[]
+  >([]);
 
   const cleanupImageData = useCallback(() => {
     imageDataRef.current = null;
@@ -118,6 +120,25 @@ export default function RGBThresholdMask() {
     mctx.putImageData(cleaned, 0, 0);
   }, [colorSpace, rRange, gRange, bRange, hRange, sRange, vRange, minSize]);
 
+  const calculateStatistics = useCallback(() => {
+    applyMask();
+    const ctx = maskCanvasRef.current!.getContext('2d')!;
+    const { data, width, height } = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
+
+    let plant = 0;
+    const total = width * height;
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) {
+        plant++;
+      }
+    }
+    const noise = total - plant;
+    setStats((prev) => [
+      ...prev.filter((item) => item.name !== filename),
+      { name: filename, plant, noise, total, width, height },
+    ]);
+  }, [applyMask, filename]);
+
   const handleUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -153,11 +174,6 @@ export default function RGBThresholdMask() {
     },
     [cleanupImageData],
   );
-
-  useEffect(() => {
-    applyMask();
-  }, [applyMask]);
-
   const saveSettings = useCallback(() => {
     const cs = colorSpace;
     const rec = {
@@ -192,7 +208,6 @@ export default function RGBThresholdMask() {
     link.click();
     saveSettings();
   }, [filename, saveSettings]);
-
   useEffect(() => {
     return cleanupImageData;
   }, [cleanupImageData]);
@@ -219,35 +234,26 @@ export default function RGBThresholdMask() {
           <option value="HSV">HSV</option>
         </select>
       </div>
-      {colorSpace === 'RGB' && imageData && (
-        <>
-          <HistogramChart imageData={imageData} channel="r" selection={rRange} />
-          <HistogramChart imageData={imageData} channel="g" selection={gRange} />
-          <HistogramChart imageData={imageData} channel="b" selection={bRange} />
-        </>
+      {imageData && (
+        <SliderGroup
+          imageData={imageData}
+          colorSpace={colorSpace}
+          rRange={rRange}
+          setRRange={setRRange}
+          gRange={gRange}
+          setGRange={setGRange}
+          bRange={bRange}
+          setBRange={setBRange}
+          hRange={hRange}
+          setHRange={setHRange}
+          sRange={sRange}
+          setSRange={setSRange}
+          vRange={vRange}
+          setVRange={setVRange}
+          applyMask={applyMask}
+        />
       )}
-      {colorSpace === 'HSV' && imageData && (
-        <>
-          <HistogramChart imageData={imageData} channel="h" selection={hRange} />
-          <HistogramChart imageData={imageData} channel="s" selection={sRange} />
-          <HistogramChart imageData={imageData} channel="v" selection={vRange} />
-        </>
-      )}
-      <SliderGroup
-        colorSpace={colorSpace}
-        rRange={rRange}
-        setRRange={setRRange}
-        gRange={gRange}
-        setGRange={setGRange}
-        bRange={bRange}
-        setBRange={setBRange}
-        hRange={hRange}
-        setHRange={setHRange}
-        sRange={sRange}
-        setSRange={setSRange}
-        vRange={vRange}
-        setVRange={setVRange}
-      />
+      <div className="text-2xl text-center ">Image Name:&nbsp;&nbsp; {filename}</div>
       <CanvasPair
         origCanvasRef={origCanvasRef}
         maskCanvasRef={maskCanvasRef}
@@ -264,7 +270,14 @@ export default function RGBThresholdMask() {
       >
         Save Current Settings
       </button>
-      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} colorSpace={colorSpace} onApply={applySaved} />
+      <button
+        onClick={calculateStatistics}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+        type="button"
+      >
+        Calculate Statistics
+      </button>
+      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} stats={stats} onApply={applySaved} />
     </div>
   );
 }

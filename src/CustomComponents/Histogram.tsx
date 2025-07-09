@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import {
   Chart as ChartJS,
   BarElement,
@@ -12,13 +12,7 @@ import {
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
 
-ChartJS.register(
-  CategoryScale, // for bar width
-  LinearScale, // numeric X axis
-  BarElement,
-  Tooltip,
-  annotationPlugin,
-);
+ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, annotationPlugin);
 
 export type Range2 = [number, number];
 
@@ -63,7 +57,7 @@ interface HistogramChartProps {
 
 export function HistogramChart({ imageData, channel, selection: [minSel, maxSel] }: HistogramChartProps) {
   const maxValue = MAX_VALUES[channel];
-  const bins = maxValue + 1; // one bin per integer
+  const bins = maxValue + 1;
 
   // eslint-disable-next-line no-shadow
   const { histPoints, histFills } = useMemo(() => {
@@ -79,7 +73,6 @@ export function HistogramChart({ imageData, channel, selection: [minSel, maxSel]
         const map = { r: 0, g: 1, b: 2 } as const;
         value = dataArr[idx + map[channel]];
       } else {
-        // HSV conversion
         const rv = dataArr[idx] / 255;
         const gv = dataArr[idx + 1] / 255;
         const bv = dataArr[idx + 2] / 255;
@@ -103,7 +96,6 @@ export function HistogramChart({ imageData, channel, selection: [minSel, maxSel]
       counts[binIndex]++;
     }
 
-    // build data arrays
     const histPoints: XY[] = counts.map((cnt, i) => ({ x: i, y: cnt }));
     const histFills: string[] = histPoints.map(({ x }) => {
       if (channel === 'h') {
