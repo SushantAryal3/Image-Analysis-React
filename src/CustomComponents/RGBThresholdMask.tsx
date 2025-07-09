@@ -121,7 +121,6 @@ export default function RGBThresholdMask() {
   }, [colorSpace, rRange, gRange, bRange, hRange, sRange, vRange, minSize]);
 
   const calculateStatistics = useCallback(() => {
-    applyMask();
     const ctx = maskCanvasRef.current!.getContext('2d')!;
     const { data, width, height } = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
 

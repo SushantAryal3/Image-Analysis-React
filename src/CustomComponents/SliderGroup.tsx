@@ -66,7 +66,7 @@ export default function SliderGroup({
               max={255}
               value={rRange}
               onChange={(vals) => setRRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
           <div className="flex flex-col w-full sm:w-1/3">
@@ -85,7 +85,7 @@ export default function SliderGroup({
               max={255}
               value={gRange}
               onChange={(vals) => setGRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
           <div className="flex flex-col w-full sm:w-1/3">
@@ -104,7 +104,7 @@ export default function SliderGroup({
               max={255}
               value={bRange}
               onChange={(vals) => setBRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
         </>
@@ -126,7 +126,7 @@ export default function SliderGroup({
               max={360}
               value={hRange}
               onChange={(vals) => setHRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
           <div className="flex flex-col w-full sm:w-1/3">
@@ -145,7 +145,7 @@ export default function SliderGroup({
               max={100}
               value={sRange}
               onChange={(vals) => setSRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
           <div className="flex flex-col w-full sm:w-1/3">
@@ -165,7 +165,7 @@ export default function SliderGroup({
               max={100}
               value={vRange}
               onChange={(vals) => setVRange(vals as Range2)}
-              onChangeComplete={(vals) => applyMask()}
+              onChangeComplete={() => applyMask()}
             />
           </div>
         </>
