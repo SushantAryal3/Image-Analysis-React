@@ -12,21 +12,17 @@ export default function RGBThresholdMask() {
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const [imageData, setImageData] = useState<ImageData | null>(null);
-
   const imageDataRef = useRef<ImageData | null>(null);
   const maskDataRef = useRef<Uint8ClampedArray | null>(null);
-
-  const [minSize, setMinSize] = useState(50);
+  const [minSize, setMinSize] = useState(0);
   const [filename, setFilename] = useState('');
   const [brushSize, setBrushSize] = useState(10);
-
-  const [rRange, setRRange] = useState<Range2>([70, 195]);
-  const [gRange, setGRange] = useState<Range2>([110, 255]);
-  const [bRange, setBRange] = useState<Range2>([8, 100]);
+  const [rRange, setRRange] = useState<Range2>([0, 255]);
+  const [gRange, setGRange] = useState<Range2>([0, 255]);
+  const [bRange, setBRange] = useState<Range2>([0, 255]);
   const [hRange, setHRange] = useState<Range2>([0, 360]);
   const [sRange, setSRange] = useState<Range2>([0, 100]);
   const [vRange, setVRange] = useState<Range2>([0, 100]);
-
   const [savedRGB, setSavedRGB] = useState<any[]>([]);
   const [savedHSV, setSavedHSV] = useState<any[]>([]);
   const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
@@ -39,6 +35,7 @@ export default function RGBThresholdMask() {
     maskDataRef.current = null;
     if (window.gc) window.gc();
   }, []);
+
   const applyMask = useCallback(() => {
     const imgData = imageDataRef.current;
     if (!imgData || !maskDataRef.current) return;
@@ -120,6 +117,23 @@ export default function RGBThresholdMask() {
     mctx.putImageData(cleaned, 0, 0);
   }, [colorSpace, rRange, gRange, bRange, hRange, sRange, vRange, minSize]);
 
+  const [shouldApplyMask, setShouldApplyMask] = useState(true);
+
+  useEffect(() => {
+    if (shouldApplyMask && imageData) {
+      applyMask();
+      setShouldApplyMask(false);
+    }
+  }, [shouldApplyMask, applyMask, imageData, colorSpace]);
+
+  const handleMinSizeChange = useCallback(
+    (n: number) => {
+      setMinSize(n);
+      applyMask();
+    },
+    [applyMask],
+  );
+
   const calculateStatistics = useCallback(() => {
     const ctx = maskCanvasRef.current!.getContext('2d')!;
     const { data, width, height } = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -166,13 +180,12 @@ export default function RGBThresholdMask() {
         maskDataRef.current = new Uint8ClampedArray(imageDataRef.current.data.length);
 
         URL.revokeObjectURL(url);
-
-        setTimeout(() => applyMask(), 0);
       };
       img.src = url;
     },
     [cleanupImageData],
   );
+
   const saveSettings = useCallback(() => {
     const cs = colorSpace;
     const rec = {
@@ -198,6 +211,7 @@ export default function RGBThresholdMask() {
       setSRange(rec.sRange);
       setVRange(rec.vRange);
     }
+    setShouldApplyMask(true);
   }, []);
 
   const downloadMask = useCallback(() => {
@@ -207,9 +221,11 @@ export default function RGBThresholdMask() {
     link.click();
     saveSettings();
   }, [filename, saveSettings]);
+
   useEffect(() => {
     return cleanupImageData;
   }, [cleanupImageData]);
+
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
       <h3 className="text-3xl text-center">Interactive RGB/HSV Threshold Mask</h3>
@@ -218,7 +234,7 @@ export default function RGBThresholdMask() {
         ref={uploadRef}
         onChange={handleUpload}
         accept="image/*"
-        className="block w-full text-sm text-gray-700 file:bg-blue-500 file:text-white file:py-2 file:px-4 file:rounded-full"
+        className="block w-full text-xl text-gray-700 file:bg-blue-500 file:text-white file:py-2 file:px-4 file:rounded-full"
       />
       <div className="flex items-center space-x-2">
         <label className="font-medium" htmlFor="valueFor">
@@ -252,7 +268,6 @@ export default function RGBThresholdMask() {
           applyMask={applyMask}
         />
       )}
-      <div className="text-2xl text-center ">Image Name:&nbsp;&nbsp; {filename}</div>
       <CanvasPair
         origCanvasRef={origCanvasRef}
         maskCanvasRef={maskCanvasRef}
@@ -260,7 +275,7 @@ export default function RGBThresholdMask() {
         onBrushSizeChange={setBrushSize}
         downloadMask={downloadMask}
         minSize={minSize}
-        onMinSizeChange={setMinSize}
+        onMinSizeChange={handleMinSizeChange}
       />
       <button
         onClick={saveSettings}

@@ -20,9 +20,7 @@ export default function CanvasPair({
   minSize,
   onMinSizeChange,
 }: Props) {
-  const [broomState, changeBroomState] = useState<Boolean>(false);
   const handleBrush = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!broomState) return;
     const mc = maskCanvasRef.current!;
     const rect = mc.getBoundingClientRect();
     const x = (e.clientX - rect.left) * (mc.width / rect.width);
@@ -32,66 +30,54 @@ export default function CanvasPair({
     ctx.fillRect(x - brushSize / 2, y - brushSize / 2, brushSize, brushSize);
   };
   return (
-    <div className="flex flex-row gap-4">
-      <canvas ref={origCanvasRef} className="border border-gray-300 rounded max-w-[45%]" />
-      <div className="relative max-w-[45%]">
-        <canvas
-          ref={maskCanvasRef}
-          className="border border-gray-300 rounded w-full"
-          onMouseDown={handleBrush}
-          onMouseMove={(e) => e.buttons === 1 && handleBrush(e)}
-        />
-        <button
-          onClick={() => {
-            changeBroomState(!broomState);
-          }}
-          title="Toggle Brush Mode"
-          className="absolute top-2 right-14 bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
-          type="button"
-        >
-          🖌
-        </button>
+    <div>
+      <div className="flex flex-row gap-4">
+        <canvas ref={origCanvasRef} className="border border-gray-300 rounded max-w-[45%]" />
+        <div className="relative max-w-[45%]">
+          <canvas
+            ref={maskCanvasRef}
+            className="border border-gray-300 rounded w-full"
+            onMouseDown={handleBrush}
+            onMouseMove={(e) => e.buttons === 1 && handleBrush(e)}
+          />
+        </div>
+      </div>
+      <div className="flex justify-end items-center gap-4 mr-[8vw]">
         <button
           onClick={downloadMask}
           title="Download Mask"
-          className="absolute top-2 right-2 bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
+          className=" bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
           type="button"
         >
           ⬇️
         </button>
-        {broomState && (
-          <div className="absolute top-2 left-2">
-            <div className="flex justify-center items-center gap-4">
-              <div className="mt-4 flex items-center justify-center">
-                <label className="font-medium" htmlFor="brushSize">
-                  Brush Size: <span className="font-semibold">{brushSize}</span>
-                </label>
-                <input
-                  id="brushSize"
-                  type="range"
-                  min={2}
-                  max={300}
-                  value={brushSize}
-                  onChange={(e) => onBrushSizeChange(+e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="font-medium mr-2" htmlFor="noiseThreshold">
-                  Noise Threshold:
-                </label>
-                <input
-                  id="noiseThreshold"
-                  type="number"
-                  min={0}
-                  step={1}
-                  value={minSize}
-                  onChange={(e) => onMinSizeChange(Number(e.target.value))}
-                  className="mt-1 w-16 border rounded px-1"
-                />
-              </div>
-            </div>
-          </div>
-        )}
+        <div className="mt-4 flex items-center justify-center">
+          <label className="font-medium" htmlFor="brushSize">
+            Brush Size: <span className="font-semibold">{brushSize}</span>
+          </label>
+          <input
+            id="brushSize"
+            type="range"
+            min={2}
+            max={300}
+            value={brushSize}
+            onChange={(e) => onBrushSizeChange(+e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="font-medium mr-2" htmlFor="noiseThreshold">
+            Noise Threshold:
+          </label>
+          <input
+            id="noiseThreshold"
+            type="number"
+            min={0}
+            step={1}
+            value={minSize}
+            onChange={(e) => onMinSizeChange(Number(e.target.value))}
+            className="mt-1 w-16 border rounded px-1"
+          />
+        </div>
       </div>
     </div>
   );

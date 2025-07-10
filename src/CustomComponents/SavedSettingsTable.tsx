@@ -18,24 +18,76 @@ export default function SavedSettingsTable({ rgbSettings, hsvSettings, stats, on
   const downloadStatsCsv = () => {
     if (stats.length === 0) return;
 
-    const headers = ['Name', 'Width', 'Height', 'Plant Pixels', 'Noise Pixels', 'Total Pixels', '% Plant'];
-    const rows = stats.map((s) => [
-      s.name,
-      s.width,
-      s.height,
-      s.plant,
-      s.noise,
-      s.total,
-      `${((s.plant / s.total) * 100).toFixed(2)}%`,
-    ]);
+    const rgbMap = new Map<string, SavedSetting>(rgbSettings.map((r) => [r.name, r]));
+    const hsvMap = new Map<string, SavedSetting>(hsvSettings.map((h) => [h.name, h]));
 
-    const csvContent = [headers, ...rows].map((r) => r.join(',')).join('\n');
+    const headers = [
+      'Name',
+      'Width',
+      'Height',
+      'Unmasked Pixels',
+      'Masked Pixels',
+      'Total Pixels',
+      '% Unmasked',
+      'Red Min',
+      'Red Max',
+      'Green Min',
+      'Green Max',
+      'Blue Min',
+      'Blue Max',
+      'Hue Min',
+      'Hue Max',
+      'Saturation Min',
+      'Saturation Max',
+      'Value Min',
+      'Value Max',
+    ];
 
+    const rows = stats.map((s) => {
+      const rgb = rgbMap.get(s.name);
+      const hsv = hsvMap.get(s.name);
+
+      const r0 = rgb?.rRange?.[0] ?? '';
+      const r1 = rgb?.rRange?.[1] ?? '';
+      const g0 = rgb?.gRange?.[0] ?? '';
+      const g1 = rgb?.gRange?.[1] ?? '';
+      const b0 = rgb?.bRange?.[0] ?? '';
+      const b1 = rgb?.bRange?.[1] ?? '';
+
+      const h0 = hsv?.hRange?.[0] ?? '';
+      const h1 = hsv?.hRange?.[1] ?? '';
+      const s0 = hsv?.sRange?.[0] ?? '';
+      const s1 = hsv?.sRange?.[1] ?? '';
+      const v0 = hsv?.vRange?.[0] ?? '';
+      const v1 = hsv?.vRange?.[1] ?? '';
+
+      return [
+        s.name,
+        s.width,
+        s.height,
+        s.plant,
+        s.noise,
+        s.total,
+        `${((s.plant / s.total) * 100).toFixed(2)}%`,
+        r0,
+        r1,
+        g0,
+        g1,
+        b0,
+        b1,
+        h0,
+        h1,
+        s0,
+        s1,
+        v0,
+        v1,
+      ];
+    });
+    const csvContent = [headers, ...rows].map((row) => row.join(',')).join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const link = document.createElement('a');
     link.href = URL.createObjectURL(blob);
-    link.setAttribute('download', 'moss_statistics.csv');
-    link.style.display = 'none';
+    link.download = 'moss_statistics.csv';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -67,16 +119,16 @@ export default function SavedSettingsTable({ rgbSettings, hsvSettings, stats, on
                 Hight
               </th>
               <th className="border border-gray-300 px-4 py-2 text-right text-sm font-medium uppercase tracking-wider">
-                Plant Pixels
+                Unmasked Pixels
               </th>
               <th className="border border-gray-300 px-4 py-2 text-right text-sm font-medium uppercase tracking-wider">
-                Noise Pixels
+                Masked Pixels
               </th>
               <th className="border border-gray-300 px-4 py-2 text-right text-sm font-medium uppercase tracking-wider">
                 Total Pixels
               </th>
               <th className="border border-gray-300 px-4 py-2 text-right text-sm font-medium uppercase tracking-wider">
-                % Plant
+                % Unmasked
               </th>
             </tr>
           </thead>
