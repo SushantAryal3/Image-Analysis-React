@@ -1,6 +1,4 @@
 /* eslint-disable jsx-a11y/label-has-associated-control */
-import { useState } from 'react';
-
 interface Props {
   origCanvasRef: React.RefObject<HTMLCanvasElement>;
   maskCanvasRef: React.RefObject<HTMLCanvasElement>;

@@ -23,8 +23,10 @@ export interface SliderGroupProps {
 
   vRange: Range2;
   setVRange: (_: Range2) => void;
+
   imageData: ImageData;
   applyMask: () => void;
+  isFurtherAnalysis?: boolean;
 }
 
 export default function SliderGroup({
@@ -43,11 +45,18 @@ export default function SliderGroup({
   setVRange,
   imageData,
   applyMask,
+  isFurtherAnalysis = false,
 }: SliderGroupProps) {
   const isRGB = colorSpace === 'RGB';
 
   return (
     <div className="flex flex-wrap gap-6">
+      {isFurtherAnalysis && (
+        <div className="w-full bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
+          <p className="text-blue-800 font-medium">Further Analysis Mode</p>
+        </div>
+      )}
+
       {isRGB ? (
         <>
           <div className="flex flex-col w-full sm:w-1/3">
@@ -150,7 +159,6 @@ export default function SliderGroup({
           </div>
           <div className="flex flex-col w-full sm:w-1/3">
             <HistogramChart imageData={imageData} channel="v" selection={vRange} />
-
             <label className="mb-2 font-medium text-gray-700" htmlFor="vRangeSlider">
               V:{' '}
               <span className="font-semibold">

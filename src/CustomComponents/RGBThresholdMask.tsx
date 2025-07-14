@@ -3,7 +3,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import removeSmallIslands from 'Utils/cleanup';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
-import SavedSettingsTable from './SavedSettingsTable';
+import SavedSettingsTable, { SavedSetting } from './SavedSettingsTable';
 
 export type Range2 = [number, number];
 
@@ -12,11 +12,16 @@ export default function RGBThresholdMask() {
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
   const [imageData, setImageData] = useState<ImageData | null>(null);
+  const [analysisImageData, setAnalysisImageData] = useState<ImageData | null>(null);
   const imageDataRef = useRef<ImageData | null>(null);
   const maskDataRef = useRef<Uint8ClampedArray | null>(null);
   const [minSize, setMinSize] = useState(0);
   const [filename, setFilename] = useState('');
   const [brushSize, setBrushSize] = useState(10);
+  const [optimalRange, setOptimalRange] = useState<{
+    RGB?: SavedSetting;
+    HSV?: SavedSetting;
+  }>({});
   const [rRange, setRRange] = useState<Range2>([0, 255]);
   const [gRange, setGRange] = useState<Range2>([0, 255]);
   const [bRange, setBRange] = useState<Range2>([0, 255]);
@@ -29,6 +34,7 @@ export default function RGBThresholdMask() {
   const [stats, setStats] = useState<
     { name: string; plant: number; noise: number; total: number; width: number; height: number }[]
   >([]);
+  const [isFurtherAnalysis, setIsFurtherAnalysis] = useState(false);
 
   const cleanupImageData = useCallback(() => {
     imageDataRef.current = null;
@@ -158,6 +164,7 @@ export default function RGBThresholdMask() {
       if (!file) return;
 
       cleanupImageData();
+      setIsFurtherAnalysis(false);
 
       const url = URL.createObjectURL(file);
       setFilename(file.name.replace(/\.[^/.]+$/, ''));
@@ -177,6 +184,7 @@ export default function RGBThresholdMask() {
 
         imageDataRef.current = octx.getImageData(0, 0, img.width, img.height);
         setImageData(imageDataRef.current);
+        setAnalysisImageData(imageDataRef.current);
         maskDataRef.current = new Uint8ClampedArray(imageDataRef.current.data.length);
 
         URL.revokeObjectURL(url);
@@ -226,6 +234,85 @@ export default function RGBThresholdMask() {
     return cleanupImageData;
   }, [cleanupImageData]);
 
+  const setOptimalValue = (rec: SavedSetting) => {
+    setOptimalRange((prev) => {
+      const base = { ...prev };
+      if (rec.rRange !== undefined) {
+        base.RGB = rec;
+      } else if (rec.hRange !== undefined) {
+        base.HSV = rec;
+      }
+      return base;
+    });
+  };
+
+  const applyOptimal = useCallback(() => {
+    if (colorSpace === 'RGB' && optimalRange.RGB) {
+      const { rRange, gRange, bRange } = optimalRange.RGB;
+      setRRange(rRange!);
+      setGRange(gRange!);
+      setBRange(bRange!);
+    } else if (colorSpace === 'HSV' && optimalRange.HSV) {
+      const { hRange, sRange, vRange } = optimalRange.HSV;
+      setHRange(hRange!);
+      setSRange(sRange!);
+      setVRange(vRange!);
+    }
+    setShouldApplyMask(true);
+  }, [colorSpace, optimalRange]);
+
+  const handleFurtherAnalysis = useCallback(() => {
+    if (!maskCanvasRef.current) return;
+
+    const mc = maskCanvasRef.current;
+    const ctx = mc.getContext('2d')!;
+    const maskedImg = ctx.getImageData(0, 0, mc.width, mc.height);
+
+    const filteredData = new Uint8ClampedArray(maskedImg.data.length);
+    const d = maskedImg.data;
+
+    for (let i = 0; i < d.length; i += 4) {
+      if (d[i] === 255 && d[i + 1] === 255 && d[i + 2] === 255) {
+        filteredData[i] = 255;
+        filteredData[i + 1] = 255;
+        filteredData[i + 2] = 255;
+        filteredData[i + 3] = 255;
+      } else {
+        filteredData[i] = d[i];
+        filteredData[i + 1] = d[i + 1];
+        filteredData[i + 2] = d[i + 2];
+        filteredData[i + 3] = d[i + 3];
+      }
+    }
+
+    const filteredImageData = new ImageData(filteredData, mc.width, mc.height);
+
+    const oc = origCanvasRef.current!;
+    const octx = oc.getContext('2d')!;
+    octx.putImageData(filteredImageData, 0, 0);
+
+    imageDataRef.current = filteredImageData;
+    setImageData(filteredImageData);
+    setAnalysisImageData(filteredImageData);
+
+    maskDataRef.current = new Uint8ClampedArray(filteredImageData.data.length);
+
+    setIsFurtherAnalysis(true);
+
+    if (colorSpace === 'RGB' && optimalRange.RGB) {
+      const { rRange: rr, gRange: gr, bRange: br } = optimalRange.RGB;
+      setRRange(rr!);
+      setGRange(gr!);
+      setBRange(br!);
+    } else if (colorSpace === 'HSV' && optimalRange.HSV) {
+      const { hRange: hr, sRange: sr, vRange: vr } = optimalRange.HSV;
+      setHRange(hr!);
+      setSRange(sr!);
+      setVRange(vr!);
+    }
+    setShouldApplyMask(true);
+  }, []);
+
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
       <h3 className="text-3xl text-center">Interactive RGB/HSV Threshold Mask</h3>
@@ -248,10 +335,17 @@ export default function RGBThresholdMask() {
           <option value="RGB">RGB</option>
           <option value="HSV">HSV</option>
         </select>
+        <button
+          onClick={applyOptimal}
+          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700"
+          type="button"
+        >
+          Apply Optimal
+        </button>
       </div>
       {imageData && (
         <SliderGroup
-          imageData={imageData}
+          imageData={analysisImageData || imageData}
           colorSpace={colorSpace}
           rRange={rRange}
           setRRange={setRRange}
@@ -266,6 +360,7 @@ export default function RGBThresholdMask() {
           vRange={vRange}
           setVRange={setVRange}
           applyMask={applyMask}
+          isFurtherAnalysis={isFurtherAnalysis}
         />
       )}
       <CanvasPair
@@ -291,7 +386,21 @@ export default function RGBThresholdMask() {
       >
         Calculate Statistics
       </button>
-      <SavedSettingsTable rgbSettings={savedRGB} hsvSettings={savedHSV} stats={stats} onApply={applySaved} />
+      <button
+        onClick={handleFurtherAnalysis}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+        type="button"
+      >
+        Further Analysis
+      </button>
+      <SavedSettingsTable
+        rgbSettings={savedRGB}
+        hsvSettings={savedHSV}
+        stats={stats}
+        onApply={applySaved}
+        onSetOptimal={setOptimalValue}
+        selectedOptimalName={colorSpace === 'RGB' ? optimalRange.RGB?.name : optimalRange.HSV?.name}
+      />
     </div>
   );
 }

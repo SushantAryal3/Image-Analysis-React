@@ -13,8 +13,17 @@ interface SavedSettingsTableProps {
   hsvSettings: SavedSetting[];
   stats: { name: string; plant: number; noise: number; total: number; width: number; height: number }[];
   onApply: (rec: SavedSetting) => void;
+  onSetOptimal: (rec: SavedSetting) => void;
+  selectedOptimalName?: string;
 }
-export default function SavedSettingsTable({ rgbSettings, hsvSettings, stats, onApply }: SavedSettingsTableProps) {
+export default function SavedSettingsTable({
+  rgbSettings,
+  hsvSettings,
+  stats,
+  onApply,
+  onSetOptimal,
+  selectedOptimalName,
+}: SavedSettingsTableProps) {
   const downloadStatsCsv = () => {
     if (stats.length === 0) return;
 
@@ -183,29 +192,40 @@ export default function SavedSettingsTable({ rgbSettings, hsvSettings, stats, on
               </tr>
             </thead>
             <tbody>
-              {rgbSettings.map((r, idx) => (
-                <tr key={r.name} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900">{r.name}</td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {r.rRange![0]}–{r.rRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {r.gRange![0]}–{r.gRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {r.bRange![0]}–{r.bRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onApply(r)}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
-                    >
-                      Apply
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {rgbSettings.map((r, idx) => {
+                const baseBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                const isOpt = r.name === selectedOptimalName;
+                return (
+                  <tr key={r.name} className={`${baseBg} ${isOpt ? 'bg-blue-100 border-blue-500' : ''}`}>
+                    <td className="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900">{r.name}</td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {r.rRange![0]}–{r.rRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {r.gRange![0]}–{r.gRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {r.bRange![0]}–{r.bRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => onApply(r)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetOptimal(r)}
+                        className="inline-flex items-center px-3 py-1 ml-4 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      >
+                        Set Optimal Value
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -235,29 +255,40 @@ export default function SavedSettingsTable({ rgbSettings, hsvSettings, stats, on
               </tr>
             </thead>
             <tbody>
-              {hsvSettings.map((h, idx) => (
-                <tr key={h.name} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                  <td className="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900">{h.name}</td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {h.hRange![0]}–{h.hRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {h.sRange![0]}–{h.sRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
-                    {h.vRange![0]}–{h.vRange![1]}
-                  </td>
-                  <td className="border border-gray-300 px-4 py-2 text-center">
-                    <button
-                      type="button"
-                      onClick={() => onApply(h)}
-                      className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
-                    >
-                      Apply
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {hsvSettings.map((h, idx) => {
+                const baseBg = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50';
+                const isOpt = h.name === selectedOptimalName;
+                return (
+                  <tr key={h.name} className={`${baseBg} ${isOpt ? 'bg-blue-100 border-blue-500' : ''}`}>
+                    <td className="border border-gray-300 px-4 py-2 text-sm font-medium text-gray-900">{h.name}</td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {h.hRange![0]}–{h.hRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {h.sRange![0]}–{h.sRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-sm text-gray-700 text-right">
+                      {h.vRange![0]}–{h.vRange![1]}
+                    </td>
+                    <td className="border border-gray-300 px-4 py-2 text-center">
+                      <button
+                        type="button"
+                        onClick={() => onApply(h)}
+                        className="inline-flex items-center px-3 py-1 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      >
+                        Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSetOptimal(h)}
+                        className="inline-flex items-center px-3 py-1 ml-4 border border-transparent text-sm leading-4 font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none"
+                      >
+                        Set Optimal Value
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

@@ -1,4 +1,5 @@
-import { useMemo } from 'react';
+// src/CustomComponents/Histogram.tsx
+import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
   BarElement,
@@ -15,12 +16,15 @@ import { Bar } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, annotationPlugin);
 
 export type Range2 = [number, number];
-
 type Channel = 'r' | 'g' | 'b' | 'h' | 's' | 'v';
 
-type XY = { x: number; y: number };
+interface HistogramProps {
+  imageData: ImageData;
+  channel: Channel;
+  selection: Range2;
+  isFurtherAnalysis?: boolean;
+}
 
-// Friendly channel names
 const CHANNEL_NAMES: Record<Channel, string> = {
   r: 'Red',
   g: 'Green',
@@ -30,7 +34,6 @@ const CHANNEL_NAMES: Record<Channel, string> = {
   v: 'Value',
 };
 
-// Max values per channel
 const MAX_VALUES: Record<Channel, number> = {
   r: 255,
   g: 255,
@@ -40,7 +43,6 @@ const MAX_VALUES: Record<Channel, number> = {
   v: 100,
 };
 
-// Solid fills for non-H channels
 const SOLID_FILLS: Record<'r' | 'g' | 'b' | 's' | 'v', string> = {
   r: 'rgba(255,0,0,0.6)',
   g: 'rgba(0,255,0,0.6)',
@@ -49,33 +51,42 @@ const SOLID_FILLS: Record<'r' | 'g' | 'b' | 's' | 'v', string> = {
   v: 'rgba(128,128,128,0.3)',
 };
 
-interface HistogramChartProps {
-  imageData: ImageData;
-  channel: Channel;
-  selection: Range2;
-}
-
-export function HistogramChart({ imageData, channel, selection: [minSel, maxSel] }: HistogramChartProps) {
+export const HistogramChart: React.FC<HistogramProps> = ({
+  imageData,
+  channel,
+  selection: [minSel, maxSel],
+  isFurtherAnalysis = false,
+}) => {
   const maxValue = MAX_VALUES[channel];
   const bins = maxValue + 1;
 
-  // eslint-disable-next-line no-shadow
   const { histPoints, histFills } = useMemo(() => {
     const counts = new Array<number>(bins).fill(0);
-    const dataArr = imageData.data;
-    const pixelCount = dataArr.length / 4;
+    const { data } = imageData;
+    const pixelCount = data.length / 4;
 
     for (let i = 0; i < pixelCount; i++) {
       const idx = i * 4;
-      let value: number;
+      const R = data[idx];
+      const G = data[idx + 1];
+      const B = data[idx + 2];
 
+      if (isFurtherAnalysis) {
+        const isWhite = R === 255 && G === 255 && B === 255;
+        if (isWhite) {
+          // eslint-disable-next-line no-continue
+          continue;
+        }
+      }
+
+      let value: number;
       if (channel === 'r' || channel === 'g' || channel === 'b') {
         const map = { r: 0, g: 1, b: 2 } as const;
-        value = dataArr[idx + map[channel]];
+        value = data[idx + map[channel]];
       } else {
-        const rv = dataArr[idx] / 255;
-        const gv = dataArr[idx + 1] / 255;
-        const bv = dataArr[idx + 2] / 255;
+        const rv = R / 255;
+        const gv = G / 255;
+        const bv = B / 255;
         const mx = Math.max(rv, gv, bv);
         const mn = Math.min(rv, gv, bv);
         const d = mx - mn;
@@ -92,76 +103,85 @@ export function HistogramChart({ imageData, channel, selection: [minSel, maxSel]
         else value = v * 100;
       }
 
-      const binIndex = Math.min(bins - 1, Math.round(value));
+      const binIndex = Math.min(bins - 1, Math.max(0, Math.round(value)));
       counts[binIndex]++;
     }
 
-    const histPoints: XY[] = counts.map((cnt, i) => ({ x: i, y: cnt }));
-    const histFills: string[] = histPoints.map(({ x }) => {
+    const histPoints = counts.map((cnt, i) => ({ x: i, y: cnt }));
+    const histFills = histPoints.map(({ x }) => {
       if (channel === 'h') {
-        return `hsl(${(x / maxValue) * 360},100%,50%)`;
+        const hue = (x / maxValue) * 360;
+        return `hsl(${hue},100%,50%)`;
       }
       return SOLID_FILLS[channel as 'r' | 'g' | 'b' | 's' | 'v'];
     });
 
     return { histPoints, histFills };
-  }, [imageData, channel, bins, maxValue]);
+  }, [imageData, channel, bins, isFurtherAnalysis]);
 
-  const chartData: ChartData<'bar', XY[]> = {
-    datasets: [
-      {
-        label: 'Pixels',
-        data: histPoints,
-        parsing: { xAxisKey: 'x', yAxisKey: 'y' },
-        backgroundColor: histFills,
-        barPercentage: 1,
-        categoryPercentage: 1,
-        borderRadius: 0,
-      } as ChartDataset<'bar', XY[]>,
-    ],
-  };
+  const chartData = useMemo<ChartData<'bar', { x: number; y: number }[]>>(
+    () => ({
+      datasets: [
+        {
+          label: 'Pixels',
+          data: histPoints,
+          parsing: { xAxisKey: 'x', yAxisKey: 'y' },
+          backgroundColor: histFills,
+          barPercentage: 1,
+          categoryPercentage: 1,
+          borderRadius: 0,
+        } as ChartDataset<'bar', { x: number; y: number }[]>,
+      ],
+    }),
+    [histPoints, histFills],
+  );
 
-  const options: ChartOptions<'bar'> = {
-    animation: false,
-    responsive: true,
-    maintainAspectRatio: false,
-    scales: {
-      x: {
-        type: 'linear',
-        min: 0,
-        max: maxValue,
-        grid: { display: false },
-        ticks: { display: false, stepSize: 1, autoSkip: false },
+  const options = useMemo<ChartOptions<'bar'>>(
+    () => ({
+      animation: false,
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        x: {
+          type: 'linear',
+          min: minSel,
+          max: maxSel,
+          grid: { display: false },
+          ticks: { display: false },
+        },
+        y: { display: false, grid: { display: false } },
       },
-      y: { display: false, grid: { display: false } },
-    },
-    plugins: {
-      legend: { display: false },
-      title: {
-        display: true,
-        text: CHANNEL_NAMES[channel],
-        align: 'start',
-        font: { size: 14, weight: 'bold' },
-        padding: { bottom: 6 },
-      },
-      tooltip: {
-        callbacks: {
-          title: ([i]) => `Value: ${i.parsed.x}`,
-          label: (i) => `Count: ${i.formattedValue}`,
+      plugins: {
+        legend: { display: false },
+        title: {
+          display: true,
+          text: CHANNEL_NAMES[channel],
+          align: 'start',
+          font: { size: 14, weight: 'bold' },
+          padding: { bottom: 6 },
+        },
+        tooltip: {
+          callbacks: {
+            title: ([ctx]) => `Value: ${ctx.parsed.x}`,
+            label: (ctx) => `Count: ${ctx.parsed.y}`,
+          },
+        },
+        annotation: {
+          annotations: {
+            minLine: { type: 'line', xMin: minSel, xMax: minSel, borderColor: '#000', borderWidth: 2 },
+            maxLine: { type: 'line', xMin: maxSel, xMax: maxSel, borderColor: '#000', borderWidth: 2 },
+          },
         },
       },
-      annotation: {
-        annotations: {
-          minLine: { type: 'line', xMin: minSel, xMax: minSel, borderColor: '#000', borderWidth: 2 },
-          maxLine: { type: 'line', xMin: maxSel, xMax: maxSel, borderColor: '#000', borderWidth: 2 },
-        },
-      },
-    },
-  };
+    }),
+    [channel, minSel, maxSel],
+  );
 
   return (
     <div style={{ width: '100%', height: 100, marginBottom: 8 }}>
       <Bar data={chartData} options={options} />
     </div>
   );
-}
+};
+
+export default HistogramChart;
