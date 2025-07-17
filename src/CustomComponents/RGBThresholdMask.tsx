@@ -11,6 +11,8 @@ export default function RGBThresholdMask() {
   const uploadRef = useRef<HTMLInputElement>(null);
   const origCanvasRef = useRef<HTMLCanvasElement>(null);
   const maskCanvasRef = useRef<HTMLCanvasElement>(null);
+  const combinedCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [multiMode, setMultiMode] = useState(false);
   const [imageData, setImageData] = useState<ImageData | null>(null);
   const [analysisImageData, setAnalysisImageData] = useState<ImageData | null>(null);
   const imageDataRef = useRef<ImageData | null>(null);
@@ -28,19 +30,16 @@ export default function RGBThresholdMask() {
   const [hRange, setHRange] = useState<Range2>([0, 360]);
   const [sRange, setSRange] = useState<Range2>([0, 100]);
   const [vRange, setVRange] = useState<Range2>([0, 100]);
-  const [savedRGB, setSavedRGB] = useState<any[]>([]);
-  const [savedHSV, setSavedHSV] = useState<any[]>([]);
-  const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
-  const [stats, setStats] = useState<
-    { name: string; plant: number; noise: number; total: number; width: number; height: number }[]
-  >([]);
-  const [isFurtherAnalysis, setIsFurtherAnalysis] = useState(false);
 
+  /* Cleanup Image Data Functionality */
   const cleanupImageData = useCallback(() => {
     imageDataRef.current = null;
     maskDataRef.current = null;
     if (window.gc) window.gc();
   }, []);
+
+  /* Apply Mask Functionality */
+  const [colorSpace, setColorSpace] = useState<'RGB' | 'HSV'>('RGB');
 
   const applyMask = useCallback(() => {
     const imgData = imageDataRef.current;
@@ -123,8 +122,8 @@ export default function RGBThresholdMask() {
     mctx.putImageData(cleaned, 0, 0);
   }, [colorSpace, rRange, gRange, bRange, hRange, sRange, vRange, minSize]);
 
+  /* Apply Mask Functionality */
   const [shouldApplyMask, setShouldApplyMask] = useState(true);
-
   useEffect(() => {
     if (shouldApplyMask && imageData) {
       applyMask();
@@ -132,6 +131,7 @@ export default function RGBThresholdMask() {
     }
   }, [shouldApplyMask, applyMask, imageData, colorSpace]);
 
+  /* Handle thresholding Size Change Functionality */
   const handleMinSizeChange = useCallback(
     (n: number) => {
       setMinSize(n);
@@ -140,8 +140,13 @@ export default function RGBThresholdMask() {
     [applyMask],
   );
 
+  /* Calculate Statistics Functionality */
+  const [stats, setStats] = useState<
+    { name: string; plant: number; noise: number; total: number; width: number; height: number }[]
+  >([]);
   const calculateStatistics = useCallback(() => {
-    const ctx = maskCanvasRef.current!.getContext('2d')!;
+    const canvas = multiMode && combinedCanvasRef.current ? combinedCanvasRef.current : maskCanvasRef.current!;
+    const ctx = canvas.getContext('2d')!;
     const { data, width, height } = ctx.getImageData(0, 0, ctx.canvas.width, ctx.canvas.height);
 
     let plant = 0;
@@ -158,6 +163,8 @@ export default function RGBThresholdMask() {
     ]);
   }, [applyMask, filename]);
 
+  /* Upload Image Functionality */
+  const [isFurtherAnalysis, setIsFurtherAnalysis] = useState(false);
   const handleUpload = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -194,6 +201,9 @@ export default function RGBThresholdMask() {
     [cleanupImageData],
   );
 
+  /* Save Settings Functionality */
+  const [savedRGB, setSavedRGB] = useState<any[]>([]);
+  const [savedHSV, setSavedHSV] = useState<any[]>([]);
   const saveSettings = useCallback(() => {
     const cs = colorSpace;
     const rec = {
@@ -207,6 +217,7 @@ export default function RGBThresholdMask() {
     }
   }, [colorSpace, filename, rRange, gRange, bRange, hRange, sRange, vRange]);
 
+  /* Apply Saved Settings Functionality */
   const applySaved = useCallback((rec: any) => {
     if ('rRange' in rec) {
       setColorSpace('RGB');
@@ -221,6 +232,8 @@ export default function RGBThresholdMask() {
     }
     setShouldApplyMask(true);
   }, []);
+
+  /* Download Mask Functionality */
 
   const downloadMask = useCallback(() => {
     const link = document.createElement('a');
@@ -246,6 +259,8 @@ export default function RGBThresholdMask() {
     });
   };
 
+  /* Optimal Range Application */
+
   const applyOptimal = useCallback(() => {
     if (colorSpace === 'RGB' && optimalRange.RGB) {
       const { rRange, gRange, bRange } = optimalRange.RGB;
@@ -260,6 +275,8 @@ export default function RGBThresholdMask() {
     }
     setShouldApplyMask(true);
   }, [colorSpace, optimalRange]);
+
+  /* Further Analysis */
 
   const handleFurtherAnalysis = useCallback(() => {
     if (!maskCanvasRef.current) return;
@@ -312,6 +329,62 @@ export default function RGBThresholdMask() {
     }
     setShouldApplyMask(true);
   }, []);
+
+  /* MultiColor Analysis */
+  type MaskRecord = { ranges: SavedSetting; mask: Uint8ClampedArray };
+  const combinedDataRef = useRef<Uint8ClampedArray | null>(null);
+  const [multiMasks, setMultiMasks] = useState<MaskRecord[]>([]);
+
+  const startMulti = () => {
+    setMultiMode(true);
+    setMultiMasks([]);
+    combinedDataRef.current = null;
+  };
+
+  const saveThisMask = () => {
+    const mc = maskCanvasRef.current;
+    if (!mc) return;
+    const w = mc.width;
+    const h = mc.height;
+    const maskImg = mc.getContext('2d')!.getImageData(0, 0, w, h);
+    const newMask = maskImg.data;
+
+    if (!combinedDataRef.current) {
+      combinedDataRef.current = new Uint8ClampedArray(w * h * 4);
+      combinedDataRef.current.fill(255);
+    }
+
+    const comb = combinedDataRef.current!;
+    for (let i = 0; i < comb.length; i += 4) {
+      if (newMask[i] !== 255 || newMask[i + 1] !== 255 || newMask[i + 2] !== 255) {
+        comb[i] = newMask[i];
+        comb[i + 1] = newMask[i + 1];
+        comb[i + 2] = newMask[i + 2];
+        comb[i + 3] = newMask[i + 3];
+      }
+    }
+
+    const cc = combinedCanvasRef.current!;
+    cc.width = w;
+    cc.height = h;
+    cc.getContext('2d')!.putImageData(new ImageData(comb, w, h), 0, 0);
+
+    setMultiMasks((m) => [
+      ...m,
+      {
+        ranges: {
+          name: `#${multiMasks.length + 1}`,
+          rRange: [...rRange],
+          gRange: [...gRange],
+          bRange: [...bRange],
+          hRange: [...hRange],
+          sRange: [...sRange],
+          vRange: [...vRange],
+        },
+        mask: comb.slice(),
+      },
+    ]);
+  };
 
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
@@ -393,6 +466,27 @@ export default function RGBThresholdMask() {
       >
         Further Analysis
       </button>
+      <button
+        type="button"
+        onClick={startMulti}
+        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+      >
+        MultiColor Analysis
+      </button>
+      {multiMode && (
+        <>
+          <button
+            type="button"
+            onClick={saveThisMask}
+            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+          >
+            Save This Mask
+          </button>
+          <div className="relative max-w-[45%]">
+            <canvas ref={combinedCanvasRef} className="border border-gray-300 rounded w-full" />
+          </div>
+        </>
+      )}
       <SavedSettingsTable
         rgbSettings={savedRGB}
         hsvSettings={savedHSV}
