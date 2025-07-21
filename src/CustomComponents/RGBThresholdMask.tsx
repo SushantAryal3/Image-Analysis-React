@@ -335,10 +335,14 @@ export default function RGBThresholdMask() {
   const combinedDataRef = useRef<Uint8ClampedArray | null>(null);
   const [multiMasks, setMultiMasks] = useState<MaskRecord[]>([]);
 
-  const startMulti = () => {
-    setMultiMode(true);
-    setMultiMasks([]);
-    combinedDataRef.current = null;
+  const toggleMultiMode = () => {
+    setMultiMode((prev) => {
+      const next = !prev;
+      if (!next) {
+        combinedDataRef.current = null;
+      }
+      return next;
+    });
   };
 
   const saveThisMask = () => {
@@ -373,7 +377,8 @@ export default function RGBThresholdMask() {
       ...m,
       {
         ranges: {
-          name: `#${multiMasks.length + 1}`,
+          name: filename,
+          colorspace: colorSpace,
           rRange: [...rRange],
           gRange: [...gRange],
           bRange: [...bRange],
@@ -385,6 +390,30 @@ export default function RGBThresholdMask() {
       },
     ]);
   };
+
+  /* Clear the canvas and reset threshold value */
+  const handleClear = useCallback(() => {
+    if (uploadRef.current) uploadRef.current.value = '';
+    setColorSpace('RGB');
+    setRRange([0, 255]);
+    setGRange([0, 255]);
+    setBRange([0, 255]);
+    setHRange([0, 360]);
+    setSRange([0, 100]);
+    setVRange([0, 100]);
+    imageDataRef.current = null;
+    maskDataRef.current = null;
+    combinedDataRef.current = null;
+    setImageData(null);
+    setAnalysisImageData(null);
+    [origCanvasRef, maskCanvasRef, combinedCanvasRef].forEach((ref) => {
+      const c = ref.current;
+      if (c) {
+        const ctx = c.getContext('2d')!;
+        ctx.clearRect(0, 0, c.width, c.height);
+      }
+    });
+  }, []);
 
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
@@ -414,6 +443,13 @@ export default function RGBThresholdMask() {
           type="button"
         >
           Apply Optimal
+        </button>
+        <button
+          onClick={handleClear}
+          className="bg-gray-300 text-gray-800 px-4 py-2 rounded-lg hover:bg-gray-400"
+          type="button"
+        >
+          Clear Canvas
         </button>
       </div>
       {imageData && (
@@ -468,11 +504,14 @@ export default function RGBThresholdMask() {
       </button>
       <button
         type="button"
-        onClick={startMulti}
-        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+        onClick={toggleMultiMode}
+        className={`px-4 py-2 rounded-lg ml-10 ${
+          multiMode ? 'bg-red-600 hover:bg-red-700' : 'bg-indigo-600 hover:bg-indigo-700'
+        } text-white`}
       >
-        MultiColor Analysis
+        {multiMode ? 'Exit MultiColor Mode' : 'Start MultiColor Analysis'}
       </button>
+
       {multiMode && (
         <>
           <button
@@ -494,6 +533,7 @@ export default function RGBThresholdMask() {
         onApply={applySaved}
         onSetOptimal={setOptimalValue}
         selectedOptimalName={colorSpace === 'RGB' ? optimalRange.RGB?.name : optimalRange.HSV?.name}
+        maskSettings={multiMasks.map((m) => m.ranges)}
       />
     </div>
   );
