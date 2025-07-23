@@ -16,7 +16,7 @@ interface SavedSettingsTableProps {
   stats: { name: string; plant: number; noise: number; total: number; width: number; height: number }[];
   onApply: (rec: SavedSetting) => void;
   onSetOptimal: (rec: SavedSetting) => void;
-  selectedOptimalName?: string;
+  selectedOptimalName?: SavedSetting;
 }
 
 export default function SavedSettingsTable({
@@ -167,7 +167,15 @@ export default function SavedSettingsTable({
             </thead>
             <tbody>
               {rgbSettings.map((r, idx) => {
-                const isOpt = r.name === selectedOptimalName;
+                const isOpt =
+                  selectedOptimalName &&
+                  r.rRange?.[0] === selectedOptimalName.rRange?.[0] &&
+                  r.rRange?.[1] === selectedOptimalName.rRange?.[1] &&
+                  r.gRange?.[0] === selectedOptimalName.gRange?.[0] &&
+                  r.gRange?.[1] === selectedOptimalName.gRange?.[1] &&
+                  r.bRange?.[0] === selectedOptimalName.bRange?.[0] &&
+                  r.bRange?.[1] === selectedOptimalName.bRange?.[1];
+
                 return (
                   <tr
                     key={r.name}
@@ -230,7 +238,14 @@ export default function SavedSettingsTable({
             </thead>
             <tbody>
               {hsvSettings.map((h, idx) => {
-                const isOpt = h.name === selectedOptimalName;
+                const isOpt =
+                  selectedOptimalName &&
+                  h.hRange?.[0] === selectedOptimalName.hRange?.[0] &&
+                  h.hRange?.[1] === selectedOptimalName.hRange?.[1] &&
+                  h.sRange?.[0] === selectedOptimalName.sRange?.[0] &&
+                  h.sRange?.[1] === selectedOptimalName.sRange?.[1] &&
+                  h.vRange?.[0] === selectedOptimalName.vRange?.[0] &&
+                  h.vRange?.[1] === selectedOptimalName.vRange?.[1];
                 return (
                   <tr
                     key={h.name}
@@ -301,8 +316,23 @@ export default function SavedSettingsTable({
                   const groupBorderClass = `${!prevSame ? 'border-t-4 border-gray-400' : ''} ${
                     !nextSame ? 'border-b-4 border-gray-400' : ''
                   }`;
+                  const isOpt =
+                    selectedOptimalName &&
+                    ((m.rRange?.[0] === selectedOptimalName.rRange?.[0] &&
+                      m.rRange?.[1] === selectedOptimalName.rRange?.[1] &&
+                      m.gRange?.[0] === selectedOptimalName.gRange?.[0] &&
+                      m.gRange?.[1] === selectedOptimalName.gRange?.[1] &&
+                      m.bRange?.[0] === selectedOptimalName.bRange?.[0] &&
+                      m.bRange?.[1] === selectedOptimalName.bRange?.[1]) ||
+                      (m.hRange?.[0] === selectedOptimalName.hRange?.[0] &&
+                        m.sRange?.[0] === selectedOptimalName.sRange?.[0] &&
+                        m.sRange?.[1] === selectedOptimalName.sRange?.[1]));
                   return (
-                    <tr className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${groupBorderClass}`}>
+                    <tr
+                      className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} ${
+                        isOpt ? 'bg-yellow-100 border-yellow-500' : ''
+                      } ${groupBorderClass}`}
+                    >
                       <td className="border px-4 py-2 text-sm font-medium text-gray-900">{m.name}</td>
                       <td className="border px-4 py-2 text-sm text-gray-700 text-right">
                         {m.colorspace === 'RGB' ? `${m.rRange![0]}–${m.rRange![1]}` : '-'}
@@ -321,6 +351,27 @@ export default function SavedSettingsTable({
                       </td>
                       <td className="border px-4 py-2 text-sm text-gray-700 text-right">
                         {m.colorspace === 'HSV' ? `${m.vRange![0]}–${m.vRange![1]}` : '-'}
+                      </td>
+                      <td className="border px-4 py-2 text-center space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => onApply(m)}
+                          className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        >
+                          Apply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onSetOptimal(m)}
+                          className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        >
+                          Set Optimal
+                        </button>
+                        {isOpt && (
+                          <span className="ml-2 inline-block px-2 py-1 text-xs font-semibold text-yellow-700 bg-yellow-200 rounded">
+                            Optimal
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

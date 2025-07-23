@@ -208,7 +208,7 @@ export default function RGBThresholdMask() {
     const cs = colorSpace;
     const rec = {
       name: filename,
-      ...(cs === 'RGB' ? { rRange, gRange, bRange } : { hRange, sRange, vRange }),
+      ...(cs === 'RGB' ? { rRange, gRange, bRange, colorspace: cs } : { hRange, sRange, vRange, colorspace: cs }),
     };
     if (cs === 'RGB') {
       setSavedRGB((prev) => [...prev.filter((r) => r.name !== filename), rec]);
@@ -219,7 +219,7 @@ export default function RGBThresholdMask() {
 
   /* Apply Saved Settings Functionality */
   const applySaved = useCallback((rec: any) => {
-    if ('rRange' in rec) {
+    if (rec.colorspace === 'RGB') {
       setColorSpace('RGB');
       setRRange(rec.rRange);
       setGRange(rec.gRange);
@@ -235,13 +235,16 @@ export default function RGBThresholdMask() {
 
   /* Download Mask Functionality */
 
-  const downloadMask = useCallback(() => {
-    const link = document.createElement('a');
-    link.download = `${filename}_masked.png`;
-    link.href = maskCanvasRef.current!.toDataURL('image/png');
-    link.click();
-    saveSettings();
-  }, [filename, saveSettings]);
+  const downloadMask = useCallback(
+    (whichImage: React.RefObject<HTMLCanvasElement>) => {
+      const link = document.createElement('a');
+      link.download = `${filename}_masked.png`;
+      link.href = whichImage.current!.toDataURL('image/png');
+      link.click();
+      saveSettings();
+    },
+    [filename, saveSettings],
+  );
 
   useEffect(() => {
     return cleanupImageData;
@@ -250,17 +253,16 @@ export default function RGBThresholdMask() {
   const setOptimalValue = (rec: SavedSetting) => {
     setOptimalRange((prev) => {
       const base = { ...prev };
-      if (rec.rRange !== undefined) {
-        base.RGB = rec;
-      } else if (rec.hRange !== undefined) {
-        base.HSV = rec;
+      if (rec.colorspace === 'RGB') {
+        base.RGB = { colorspace: 'RGB', rRange: rec.rRange, gRange: rec.gRange, bRange: rec.bRange, name: rec.name };
+      } else if (rec.colorspace === 'HSV') {
+        base.HSV = { colorspace: 'HSV', hRange: rec.hRange, sRange: rec.sRange, vRange: rec.vRange, name: rec.name };
       }
       return base;
     });
   };
 
   /* Optimal Range Application */
-
   const applyOptimal = useCallback(() => {
     if (colorSpace === 'RGB' && optimalRange.RGB) {
       const { rRange, gRange, bRange } = optimalRange.RGB;
@@ -519,11 +521,19 @@ export default function RGBThresholdMask() {
             onClick={saveThisMask}
             className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
           >
-            Save This Mask
+            Add this UnMasked
           </button>
           <div className="relative max-w-[45%]">
             <canvas ref={combinedCanvasRef} className="border border-gray-300 rounded w-full" />
           </div>
+          <button
+            onClick={() => downloadMask(combinedCanvasRef)}
+            title="Download Mask"
+            className=" bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
+            type="button"
+          >
+            ⬇️
+          </button>
         </>
       )}
       <SavedSettingsTable
@@ -532,7 +542,7 @@ export default function RGBThresholdMask() {
         stats={stats}
         onApply={applySaved}
         onSetOptimal={setOptimalValue}
-        selectedOptimalName={colorSpace === 'RGB' ? optimalRange.RGB?.name : optimalRange.HSV?.name}
+        selectedOptimalName={colorSpace === 'RGB' ? optimalRange.RGB : optimalRange.HSV}
         maskSettings={multiMasks.map((m) => m.ranges)}
       />
     </div>

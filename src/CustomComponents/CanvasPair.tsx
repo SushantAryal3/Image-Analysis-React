@@ -6,7 +6,7 @@ interface Props {
   maskCanvasRef: React.RefObject<HTMLCanvasElement>;
   brushSize: number;
   onBrushSizeChange: (n: number) => void;
-  downloadMask: () => void;
+  downloadMask: (whichImage: React.RefObject<HTMLCanvasElement>) => void;
   minSize: number;
   onMinSizeChange: (n: number) => void;
 }
@@ -45,7 +45,6 @@ export default function CanvasPair({
       const mc = maskCanvasRef.current;
       const rect = mc.getBoundingClientRect();
 
-      // Set overlay canvas size to match the display size
       overlay.width = rect.width;
       overlay.height = rect.height;
 
@@ -53,10 +52,8 @@ export default function CanvasPair({
       ctx.clearRect(0, 0, overlay.width, overlay.height);
 
       if (isHovering) {
-        // Calculate brush size in display coordinates
         const displayBrushSize = brushSize * (rect.width / mc.width);
 
-        // Draw brush preview rectangle
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.8)';
         ctx.lineWidth = 2;
         ctx.setLineDash([5, 5]);
@@ -66,19 +63,16 @@ export default function CanvasPair({
 
         ctx.strokeRect(rectX, rectY, displayBrushSize, displayBrushSize);
 
-        // Add crosshair at center
         ctx.setLineDash([]);
         ctx.strokeStyle = 'rgba(255, 0, 0, 0.6)';
         ctx.lineWidth = 1;
         const crossSize = 10;
 
-        // Horizontal line
         ctx.beginPath();
         ctx.moveTo(displayX - crossSize, displayY);
         ctx.lineTo(displayX + crossSize, displayY);
         ctx.stroke();
 
-        // Vertical line
         ctx.beginPath();
         ctx.moveTo(displayX, displayY - crossSize);
         ctx.lineTo(displayX, displayY + crossSize);
@@ -125,7 +119,6 @@ export default function CanvasPair({
     }
   }, []);
 
-  // Update brush preview when brush size changes
   const handleBrushSizeChange = useCallback(
     (newSize: number) => {
       onBrushSizeChange(newSize);
@@ -148,9 +141,8 @@ export default function CanvasPair({
             onMouseMove={handleMouseMove}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
-            style={{ cursor: 'none' }} // Hide default cursor
+            style={{ cursor: 'none' }}
           />
-          {/* Overlay canvas for brush preview */}
           <canvas
             ref={overlayCanvasRef}
             className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
@@ -160,7 +152,7 @@ export default function CanvasPair({
       </div>
       <div className="flex justify-end items-center gap-4 mr-[8vw]">
         <button
-          onClick={downloadMask}
+          onClick={() => downloadMask(maskCanvasRef)}
           title="Download Mask"
           className=" bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
           type="button"
