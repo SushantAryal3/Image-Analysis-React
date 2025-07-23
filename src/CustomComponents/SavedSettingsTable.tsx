@@ -203,6 +203,21 @@ export default function SavedSettingsTable({
                       </button>
                       <button
                         type="button"
+                        onClick={() =>
+                          onApply({
+                            colorspace: 'RGB',
+                            rRange: [0, 255],
+                            gRange: [0, 255],
+                            bRange: [0, 255],
+                            name: r.name,
+                          })
+                        }
+                        className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                      >
+                        Remove
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => onSetOptimal(r)}
                         className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
                       >
@@ -270,6 +285,21 @@ export default function SavedSettingsTable({
                         className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
                       >
                         Apply
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onApply({
+                            colorspace: 'HSV',
+                            hRange: [0, 360],
+                            sRange: [0, 100],
+                            vRange: [0, 100],
+                            name: h.name,
+                          })
+                        }
+                        className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                      >
+                        Remove
                       </button>
                       <button
                         type="button"
@@ -355,10 +385,35 @@ export default function SavedSettingsTable({
                       <td className="border px-4 py-2 text-center space-x-2">
                         <button
                           type="button"
-                          onClick={() => onApply(m)}
                           className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                          onClick={() => onApply(m)}
                         >
                           Apply
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const value: SavedSetting =
+                              m.colorspace === 'RGB'
+                                ? {
+                                    colorspace: 'RGB',
+                                    rRange: [0, 255],
+                                    gRange: [0, 255],
+                                    bRange: [0, 255],
+                                    name: m.name,
+                                  }
+                                : {
+                                    colorspace: 'HSV',
+                                    hRange: [0, 360],
+                                    sRange: [0, 100],
+                                    vRange: [0, 100],
+                                    name: m.name,
+                                  };
+                            onApply(value);
+                          }}
+                          className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
+                        >
+                          Remove
                         </button>
                         <button
                           type="button"
