@@ -17,6 +17,9 @@ interface SavedSettingsTableProps {
   onApply: (rec: SavedSetting) => void;
   onSetOptimal: (rec: SavedSetting) => void;
   selectedOptimalName?: SavedSetting;
+  onRemove: (rec: SavedSetting) => void;
+  onRemoveMask: (idx: number) => void;
+  onCalculateStatistics: () => void;
 }
 
 export default function SavedSettingsTable({
@@ -27,6 +30,9 @@ export default function SavedSettingsTable({
   onApply,
   onSetOptimal,
   selectedOptimalName,
+  onRemove,
+  onRemoveMask,
+  onCalculateStatistics,
 }: SavedSettingsTableProps) {
   const downloadStatsCsv = () => {
     if (stats.length === 0) return;
@@ -111,15 +117,24 @@ export default function SavedSettingsTable({
     <div className="space-y-8">
       {/* --- Statistics Table --- */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <h4 className="text-2xl font-semibold">Moss Statistics</h4>
-          <button
-            type="button"
-            onClick={downloadStatsCsv}
-            className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
-          >
-            Download CSV
-          </button>
+        <div className="flex items-center justify-between gap-10 mb-4">
+          <h4 className="text-2xl font-semibold">Mask Statistics</h4>
+          <div>
+            <button
+              type="button"
+              onClick={downloadStatsCsv}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+            >
+              Download CSV
+            </button>
+            <button
+              onClick={() => onCalculateStatistics()}
+              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+              type="button"
+            >
+              Calculate Statistics
+            </button>
+          </div>
         </div>
         <table className="min-w-full border border-gray-300">
           <thead className="bg-gray-100">
@@ -203,15 +218,7 @@ export default function SavedSettingsTable({
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          onApply({
-                            colorspace: 'RGB',
-                            rRange: [0, 255],
-                            gRange: [0, 255],
-                            bRange: [0, 255],
-                            name: r.name,
-                          })
-                        }
+                        onClick={() => onRemove(r)}
                         className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
                       >
                         Remove
@@ -288,15 +295,7 @@ export default function SavedSettingsTable({
                       </button>
                       <button
                         type="button"
-                        onClick={() =>
-                          onApply({
-                            colorspace: 'HSV',
-                            hRange: [0, 360],
-                            sRange: [0, 100],
-                            vRange: [0, 100],
-                            name: h.name,
-                          })
-                        }
+                        onClick={() => onRemove(h)}
                         className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
                       >
                         Remove
@@ -392,25 +391,7 @@ export default function SavedSettingsTable({
                         </button>
                         <button
                           type="button"
-                          onClick={() => {
-                            const value: SavedSetting =
-                              m.colorspace === 'RGB'
-                                ? {
-                                    colorspace: 'RGB',
-                                    rRange: [0, 255],
-                                    gRange: [0, 255],
-                                    bRange: [0, 255],
-                                    name: m.name,
-                                  }
-                                : {
-                                    colorspace: 'HSV',
-                                    hRange: [0, 360],
-                                    sRange: [0, 100],
-                                    vRange: [0, 100],
-                                    name: m.name,
-                                  };
-                            onApply(value);
-                          }}
+                          onClick={() => onRemoveMask(idx)}
                           className="px-3 py-1 text-sm rounded bg-indigo-600 text-white hover:bg-indigo-700"
                         >
                           Remove

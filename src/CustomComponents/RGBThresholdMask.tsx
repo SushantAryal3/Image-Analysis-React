@@ -234,7 +234,6 @@ export default function RGBThresholdMask() {
   }, []);
 
   /* Download Mask Functionality */
-
   const downloadMask = useCallback(
     (whichImage: React.RefObject<HTMLCanvasElement>) => {
       const link = document.createElement('a');
@@ -279,7 +278,6 @@ export default function RGBThresholdMask() {
   }, [colorSpace, optimalRange]);
 
   /* Further Analysis */
-
   const handleFurtherAnalysis = useCallback(() => {
     if (!maskCanvasRef.current) return;
 
@@ -417,6 +415,19 @@ export default function RGBThresholdMask() {
     });
   }, []);
 
+  /* Remove the Saved Settings */
+  const removeSetting = useCallback((rec: SavedSetting) => {
+    if (rec.colorspace === 'RGB') {
+      setSavedRGB((prev) => prev.filter((r) => r.name !== rec.name));
+    } else if (rec.colorspace === 'HSV') {
+      setSavedHSV((prev) => prev.filter((h) => h.name !== rec.name));
+    }
+  }, []);
+
+  const removeMaskAt = useCallback((idx: number) => {
+    setMultiMasks((prev) => prev.filter((_, i) => i !== idx));
+  }, []);
+
   return (
     <div className="mt-10 max-w-[95%] mx-auto bg-white shadow-2xl border-t-2 rounded-2xl p-6 space-y-6">
       <h3 className="text-3xl text-center">Interactive RGB/HSV Threshold Mask</h3>
@@ -482,6 +493,9 @@ export default function RGBThresholdMask() {
         downloadMask={downloadMask}
         minSize={minSize}
         onMinSizeChange={handleMinSizeChange}
+        multiMode={multiMode}
+        combinedCanvasRef={combinedCanvasRef}
+        multiImageMaskSave={saveThisMask}
       />
       <button
         onClick={saveSettings}
@@ -489,13 +503,6 @@ export default function RGBThresholdMask() {
         type="button"
       >
         Save Current Settings
-      </button>
-      <button
-        onClick={calculateStatistics}
-        className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
-        type="button"
-      >
-        Calculate Statistics
       </button>
       <button
         onClick={handleFurtherAnalysis}
@@ -514,36 +521,17 @@ export default function RGBThresholdMask() {
         {multiMode ? 'Exit MultiColor Mode' : 'Start MultiColor Analysis'}
       </button>
 
-      {multiMode && (
-        <>
-          <button
-            type="button"
-            onClick={saveThisMask}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
-          >
-            Add this UnMasked
-          </button>
-          <div className="relative max-w-[45%]">
-            <canvas ref={combinedCanvasRef} className="border border-gray-300 rounded w-full" />
-          </div>
-          <button
-            onClick={() => downloadMask(combinedCanvasRef)}
-            title="Download Mask"
-            className=" bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
-            type="button"
-          >
-            ⬇️
-          </button>
-        </>
-      )}
       <SavedSettingsTable
         rgbSettings={savedRGB}
         hsvSettings={savedHSV}
         stats={stats}
         onApply={applySaved}
+        onRemove={removeSetting}
+        onRemoveMask={removeMaskAt}
         onSetOptimal={setOptimalValue}
         selectedOptimalName={colorSpace === 'RGB' ? optimalRange.RGB : optimalRange.HSV}
         maskSettings={multiMasks.map((m) => m.ranges)}
+        onCalculateStatistics={calculateStatistics}
       />
     </div>
   );
