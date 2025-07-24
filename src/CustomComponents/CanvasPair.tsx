@@ -32,10 +32,16 @@ export default function CanvasPair({
   const [brushMode, setBrushMode] = useState<'erase' | 'add'>('erase');
   const [zoom, setZoom] = useState(1);
 
-  /* Get the coordinates of the mouse event relative to the mask canvas */
+  // Get the active canvas based on multiMode
+  const getActiveCanvasRef = useCallback(() => {
+    return multiMode ? combinedCanvasRef : maskCanvasRef;
+  }, [multiMode, combinedCanvasRef, maskCanvasRef]);
+
+  /* Get the coordinates of the mouse event relative to the active canvas */
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const mc = maskCanvasRef.current!;
+      const activeCanvasRef = getActiveCanvasRef();
+      const mc = activeCanvasRef.current!;
       const rect = mc.getBoundingClientRect();
       const x = (e.clientX - rect.left) * (mc.width / rect.width);
       const y = (e.clientY - rect.top) * (mc.height / rect.height);
@@ -43,16 +49,17 @@ export default function CanvasPair({
       const displayY = e.clientY - rect.top;
       return { x, y, displayX, displayY };
     },
-    [maskCanvasRef],
+    [getActiveCanvasRef],
   );
 
   /* Draw a preview of the brush on the overlay canvas */
   const drawBrushPreview = useCallback(
     (displayX: number, displayY: number) => {
       const overlay = overlayCanvasRef.current;
-      if (!overlay || !maskCanvasRef.current) return;
+      const activeCanvasRef = getActiveCanvasRef();
+      if (!overlay || !activeCanvasRef.current) return;
 
-      const mc = maskCanvasRef.current;
+      const mc = activeCanvasRef.current;
       const rect = mc.getBoundingClientRect();
 
       overlay.width = rect.width;
@@ -89,14 +96,15 @@ export default function CanvasPair({
         ctx.stroke();
       }
     },
-    [brushSize, isHovering, maskCanvasRef],
+    [brushSize, isHovering, getActiveCanvasRef],
   );
 
   /* Handle brush actions for adding or erasing */
   const handleBrush = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const { x, y } = getCanvasCoordinates(e);
-      const mc = maskCanvasRef.current!;
+      const activeCanvasRef = getActiveCanvasRef();
+      const mc = activeCanvasRef.current!;
       const ctx = mc.getContext('2d')!;
       const half = brushSize / 2;
 
@@ -110,7 +118,7 @@ export default function CanvasPair({
         ctx.putImageData(imgData, x - half, y - half);
       }
     },
-    [brushSize, brushMode, getCanvasCoordinates, origCanvasRef, maskCanvasRef],
+    [brushSize, brushMode, getCanvasCoordinates, origCanvasRef, getActiveCanvasRef],
   );
 
   const handleMouseMove = useCallback(
@@ -153,7 +161,8 @@ export default function CanvasPair({
   /* Invert the mask by replacing white pixels with original image pixels */
   const handleInvertMask = useCallback(() => {
     const oc = origCanvasRef.current!;
-    const mc = maskCanvasRef.current!;
+    const activeCanvasRef = getActiveCanvasRef();
+    const mc = activeCanvasRef.current!;
     const octx = oc.getContext('2d')!;
     const mctx = mc.getContext('2d')!;
 
@@ -177,101 +186,179 @@ export default function CanvasPair({
       dMask[i + 3] = 255;
     }
     mctx.putImageData(maskData, 0, 0);
-  }, [origCanvasRef, maskCanvasRef]);
+  }, [origCanvasRef, getActiveCanvasRef]);
+
+  // Get the active canvas element for event handlers
+  const getActiveCanvasElement = () => {
+    return multiMode ? combinedCanvasRef.current : maskCanvasRef.current;
+  };
 
   return (
     <div>
       <div className="flex flex-row gap-4">
         <canvas ref={origCanvasRef} className="border border-gray-300 rounded max-w-[45%]" />
+
+        {/* Mask Canvas - only interactive when multiMode is false */}
         <div className="relative max-w-[45%]">
           <canvas
             ref={maskCanvasRef}
             className="border border-gray-300 rounded w-full"
-            onMouseDown={handleBrush}
-            onMouseMove={handleMouseMove}
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
-            style={{ cursor: 'none' }}
+            onMouseDown={!multiMode ? handleBrush : undefined}
+            onMouseMove={!multiMode ? handleMouseMove : undefined}
+            onMouseEnter={!multiMode ? handleMouseEnter : undefined}
+            onMouseLeave={!multiMode ? handleMouseLeave : undefined}
+            style={{ cursor: !multiMode ? 'none' : 'default' }}
           />
-          <canvas
-            ref={overlayCanvasRef}
-            className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
-            style={{ zIndex: 10 }}
-          />
+          {!multiMode && (
+            <canvas
+              ref={overlayCanvasRef}
+              className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
+              style={{ zIndex: 10 }}
+            />
+          )}
         </div>
       </div>
-      <div className="flex justify-end items-center gap-4 mr-[8vw]">
-        <select
-          value={brushMode}
-          onChange={(e) => setBrushMode(e.target.value as 'erase' | 'add')}
-          className="border rounded px-2 py-1 mt-5"
-        >
-          <option value="erase">Erase</option>
-          <option value="add">Add from original</option>
-        </select>
-        <button
-          onClick={handleInvertMask}
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
-          type="button"
-        >
-          Invert Mask
-        </button>
-        <button
-          onClick={() => downloadMask(maskCanvasRef)}
-          title="Download Mask"
-          className=" bg-white border border-gray-300 mt-4 rounded-full px-3 shadow hover:bg-gray-100"
-          type="button"
-        >
-          ⬇️
-        </button>
-        <div className="mt-4 flex items-center justify-center">
-          <label className="font-medium" htmlFor="brushSize">
-            Brush Size: <span className="font-semibold">{brushSize}</span>
-          </label>
-          <input
-            id="brushSize"
-            type="range"
-            min={2}
-            max={300}
-            value={brushSize}
-            onChange={(e) => handleBrushSizeChange(+e.target.value)}
-          />
+
+      {!multiMode && (
+        <div className="flex justify-end items-center gap-4 mr-[8vw]">
+          <select
+            value={brushMode}
+            onChange={(e) => setBrushMode(e.target.value as 'erase' | 'add')}
+            className="border rounded px-2 py-1 mt-5"
+          >
+            <option value="erase">Erase</option>
+            <option value="add">Add from original</option>
+          </select>
+          <button
+            onClick={handleInvertMask}
+            title="Download Mask"
+            className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
+            type="button"
+          >
+            <span className="material-symbols-outlined">change_circle</span>
+          </button>
+          <button
+            onClick={() => downloadMask(maskCanvasRef)}
+            title="Download Mask"
+            className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
+            type="button"
+          >
+            <span className="material-symbols-outlined">download</span>
+          </button>
+          <div className="mt-4 flex items-center justify-center">
+            <label className="font-medium" htmlFor="brushSize">
+              Brush Size: <span className="font-semibold">{brushSize}</span>
+            </label>
+            <input
+              id="brushSize"
+              type="range"
+              min={2}
+              max={300}
+              value={brushSize}
+              onChange={(e) => handleBrushSizeChange(+e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="font-medium mr-2" htmlFor="noiseThreshold">
+              Noise Threshold:
+            </label>
+            <input
+              id="noiseThreshold"
+              type="number"
+              min={0}
+              step={1}
+              value={minSize}
+              onChange={(e) => onMinSizeChange(Number(e.target.value))}
+              className="mt-1 w-16 border rounded px-1"
+            />
+          </div>
         </div>
-        <div>
-          <label className="font-medium mr-2" htmlFor="noiseThreshold">
-            Noise Threshold:
-          </label>
-          <input
-            id="noiseThreshold"
-            type="number"
-            min={0}
-            step={1}
-            value={minSize}
-            onChange={(e) => onMinSizeChange(Number(e.target.value))}
-            className="mt-1 w-16 border rounded px-1"
-          />
-        </div>
-      </div>
+      )}
+
+      {/* Multi-mode section */}
       {multiMode && (
         <>
-          <button
-            type="button"
-            onClick={multiImageMaskSave}
-            className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
-          >
-            Add this UnMasked
-          </button>
-          <div className="relative max-w-[45%]">
-            <canvas ref={combinedCanvasRef} className="border border-gray-300 rounded w-full" />
+          <div className="relative">
+            <button
+              type="button"
+              onClick={multiImageMaskSave}
+              className="bg-indigo-600 absolute right-36 mt-3 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 flex justify-center items-center"
+            >
+              <span className="material-symbols-outlined">add</span>
+              UnMasked
+            </button>
           </div>
-          <button
-            onClick={() => downloadMask(combinedCanvasRef)}
-            title="Download Mask"
-            className=" bg-white border border-gray-300 rounded-full p-2 shadow hover:bg-gray-100"
-            type="button"
-          >
-            ⬇️
-          </button>
+          <div className="relative mt-5 max-w-[45%]">
+            <canvas
+              ref={combinedCanvasRef}
+              className="border border-gray-300 rounded w-full"
+              onMouseDown={handleBrush}
+              onMouseMove={handleMouseMove}
+              onMouseEnter={handleMouseEnter}
+              onMouseLeave={handleMouseLeave}
+              style={{ cursor: 'none' }}
+            />
+            <canvas
+              ref={overlayCanvasRef}
+              className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
+              style={{ zIndex: 10 }}
+            />
+          </div>
+
+          {/* Controls for combined canvas in multiMode */}
+          <div className="flex justify-end items-center gap-4 mr-[8vw]">
+            <select
+              value={brushMode}
+              onChange={(e) => setBrushMode(e.target.value as 'erase' | 'add')}
+              className="border rounded px-2 py-1 mt-5"
+            >
+              <option value="erase">Erase</option>
+              <option value="add">Add from original</option>
+            </select>
+            <button
+              onClick={handleInvertMask}
+              title="Download Mask"
+              className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
+              type="button"
+            >
+              <span className="material-symbols-outlined">change_circle</span>
+            </button>
+            <button
+              onClick={() => downloadMask(combinedCanvasRef)}
+              title="Download Mask"
+              className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
+              type="button"
+            >
+              <span className="material-symbols-outlined">download</span>
+            </button>
+            <div className="mt-4 flex items-center justify-center">
+              <label className="font-medium" htmlFor="brushSizeMulti">
+                Brush Size: <span className="font-semibold">{brushSize}</span>
+              </label>
+              <input
+                id="brushSizeMulti"
+                type="range"
+                min={2}
+                max={300}
+                value={brushSize}
+                onChange={(e) => handleBrushSizeChange(+e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="font-medium mr-2" htmlFor="noiseThresholdMulti">
+                Noise Threshold:
+              </label>
+              <input
+                id="noiseThresholdMulti"
+                type="number"
+                min={0}
+                step={1}
+                value={minSize}
+                onChange={(e) => onMinSizeChange(Number(e.target.value))}
+                className="mt-1 w-16 border rounded px-1"
+              />
+            </div>
+          </div>
         </>
       )}
     </div>
