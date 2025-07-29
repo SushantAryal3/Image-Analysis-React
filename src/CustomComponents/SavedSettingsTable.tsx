@@ -115,10 +115,18 @@ export default function SavedSettingsTable({
 
   return (
     <div className="space-y-8">
-      {/* --- Statistics Table --- */}
       <div>
         <div className="flex items-center justify-between gap-10 mb-4">
-          <h4 className="text-2xl font-semibold">Mask Statistics</h4>
+          <div className="flex items-center gap-2">
+            <h4 className="text-2xl font-semibold">Mask Statistics</h4>
+            <button
+              onClick={() => onCalculateStatistics()}
+              className="bg-indigo-600 text-white px-1 py-2 rounded-lg hover:bg-indigo-700 ml-10"
+              type="button"
+            >
+              Calculate Statistics
+            </button>
+          </div>
           <div>
             <button
               type="button"
@@ -126,13 +134,6 @@ export default function SavedSettingsTable({
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
             >
               Download CSV
-            </button>
-            <button
-              onClick={() => onCalculateStatistics()}
-              className="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 ml-10"
-              type="button"
-            >
-              Calculate Statistics
             </button>
           </div>
         </div>

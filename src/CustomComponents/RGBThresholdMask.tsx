@@ -161,7 +161,7 @@ export default function RGBThresholdMask() {
       ...prev.filter((item) => item.name !== filename),
       { name: filename, plant, noise, total, width, height },
     ]);
-  }, [applyMask, filename]);
+  }, [applyMask, filename, multiMode]);
 
   /* Upload Image Functionality */
   const [isFurtherAnalysis, setIsFurtherAnalysis] = useState(false);
