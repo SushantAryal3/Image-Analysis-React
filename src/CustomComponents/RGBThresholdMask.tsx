@@ -406,6 +406,7 @@ export default function RGBThresholdMask() {
     combinedDataRef.current = null;
     setImageData(null);
     setAnalysisImageData(null);
+    setMultiMode(false);
     [origCanvasRef, maskCanvasRef, combinedCanvasRef].forEach((ref) => {
       const c = ref.current;
       if (c) {

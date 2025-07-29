@@ -27,17 +27,22 @@ export default function CanvasPair({
   multiImageMaskSave,
 }: Props) {
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const combinedOverlayCanvasRef = useRef<HTMLCanvasElement>(null);
   const [isHovering, setIsHovering] = useState(false);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [brushMode, setBrushMode] = useState<'erase' | 'add'>('erase');
-  const [zoom, setZoom] = useState(1);
+  const [activeCanvas, setActiveCanvas] = useState<'mask' | 'combined'>('mask');
 
-  // Get the active canvas based on multiMode
   const getActiveCanvasRef = useCallback(() => {
-    return multiMode ? combinedCanvasRef : maskCanvasRef;
-  }, [multiMode, combinedCanvasRef, maskCanvasRef]);
+    if (!multiMode) return maskCanvasRef;
+    return activeCanvas === 'mask' ? maskCanvasRef : combinedCanvasRef;
+  }, [multiMode, activeCanvas, maskCanvasRef, combinedCanvasRef]);
 
-  /* Get the coordinates of the mouse event relative to the active canvas */
+  const getActiveOverlayRef = useCallback(() => {
+    if (!multiMode) return overlayCanvasRef;
+    return activeCanvas === 'mask' ? overlayCanvasRef : combinedOverlayCanvasRef;
+  }, [multiMode, activeCanvas]);
+
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const activeCanvasRef = getActiveCanvasRef();
@@ -52,10 +57,9 @@ export default function CanvasPair({
     [getActiveCanvasRef],
   );
 
-  /* Draw a preview of the brush on the overlay canvas */
   const drawBrushPreview = useCallback(
-    (displayX: number, displayY: number) => {
-      const overlay = overlayCanvasRef.current;
+    (displayX: number, displayY: number, targetOverlay?: React.RefObject<HTMLCanvasElement>) => {
+      const overlay = targetOverlay?.current || getActiveOverlayRef().current;
       const activeCanvasRef = getActiveCanvasRef();
       if (!overlay || !activeCanvasRef.current) return;
 
@@ -96,15 +100,14 @@ export default function CanvasPair({
         ctx.stroke();
       }
     },
-    [brushSize, isHovering, getActiveCanvasRef],
+    [brushSize, isHovering, getActiveCanvasRef, getActiveOverlayRef],
   );
 
-  /* Handle brush actions for adding or erasing */
   const handleBrush = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasElement>, targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
+      const canvasRef = targetCanvas || getActiveCanvasRef();
       const { x, y } = getCanvasCoordinates(e);
-      const activeCanvasRef = getActiveCanvasRef();
-      const mc = activeCanvasRef.current!;
+      const mc = canvasRef.current!;
       const ctx = mc.getContext('2d')!;
       const half = brushSize / 2;
 
@@ -122,13 +125,17 @@ export default function CanvasPair({
   );
 
   const handleMouseMove = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>) => {
+    (
+      e: React.MouseEvent<HTMLCanvasElement>,
+      targetCanvas?: React.RefObject<HTMLCanvasElement>,
+      targetOverlay?: React.RefObject<HTMLCanvasElement>,
+    ) => {
       const { displayX, displayY } = getCanvasCoordinates(e);
       setMousePos({ x: displayX, y: displayY });
-      drawBrushPreview(displayX, displayY);
+      drawBrushPreview(displayX, displayY, targetOverlay);
 
       if (e.buttons === 1) {
-        handleBrush(e);
+        handleBrush(e, targetCanvas);
       }
     },
     [getCanvasCoordinates, drawBrushPreview, handleBrush],
@@ -138,16 +145,18 @@ export default function CanvasPair({
     setIsHovering(true);
   }, []);
 
-  const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
-    const overlay = overlayCanvasRef.current;
-    if (overlay) {
-      const ctx = overlay.getContext('2d')!;
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
-    }
-  }, []);
+  const handleMouseLeave = useCallback(
+    (targetOverlay?: React.RefObject<HTMLCanvasElement>) => {
+      setIsHovering(false);
+      const overlay = targetOverlay?.current || getActiveOverlayRef().current;
+      if (overlay) {
+        const ctx = overlay.getContext('2d')!;
+        ctx.clearRect(0, 0, overlay.width, overlay.height);
+      }
+    },
+    [getActiveOverlayRef],
+  );
 
-  /* Handle brush size changes and redraw the preview */
   const handleBrushSizeChange = useCallback(
     (newSize: number) => {
       onBrushSizeChange(newSize);
@@ -158,66 +167,92 @@ export default function CanvasPair({
     [onBrushSizeChange, isHovering, mousePos, drawBrushPreview],
   );
 
-  /* Invert the mask by replacing white pixels with original image pixels */
-  const handleInvertMask = useCallback(() => {
-    const oc = origCanvasRef.current!;
-    const activeCanvasRef = getActiveCanvasRef();
-    const mc = activeCanvasRef.current!;
-    const octx = oc.getContext('2d')!;
-    const mctx = mc.getContext('2d')!;
+  const handleInvertMask = useCallback(
+    (targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
+      const oc = origCanvasRef.current!;
+      const canvasRef = targetCanvas || getActiveCanvasRef();
+      const mc = canvasRef.current!;
+      const octx = oc.getContext('2d')!;
+      const mctx = mc.getContext('2d')!;
 
-    const origData = octx.getImageData(0, 0, oc.width, oc.height);
-    const maskData = mctx.getImageData(0, 0, mc.width, mc.height);
+      const origData = octx.getImageData(0, 0, oc.width, oc.height);
+      const maskData = mctx.getImageData(0, 0, mc.width, mc.height);
 
-    const dOrig = origData.data;
-    const dMask = maskData.data;
+      const dOrig = origData.data;
+      const dMask = maskData.data;
 
-    for (let i = 0; i < dMask.length; i += 4) {
-      const r = dMask[i];
-      const g = dMask[i + 1];
-      const b = dMask[i + 2];
-      if (r === 255 && g === 255 && b === 255) {
-        dMask[i] = dOrig[i];
-        dMask[i + 1] = dOrig[i + 1];
-        dMask[i + 2] = dOrig[i + 2];
-      } else {
-        dMask[i] = dMask[i + 1] = dMask[i + 2] = 255;
+      for (let i = 0; i < dMask.length; i += 4) {
+        const r = dMask[i];
+        const g = dMask[i + 1];
+        const b = dMask[i + 2];
+        if (r === 255 && g === 255 && b === 255) {
+          dMask[i] = dOrig[i];
+          dMask[i + 1] = dOrig[i + 1];
+          dMask[i + 2] = dOrig[i + 2];
+        } else {
+          dMask[i] = dMask[i + 1] = dMask[i + 2] = 255;
+        }
+        dMask[i + 3] = 255;
       }
-      dMask[i + 3] = 255;
-    }
-    mctx.putImageData(maskData, 0, 0);
-  }, [origCanvasRef, getActiveCanvasRef]);
-
-  // Get the active canvas element for event handlers
-  const getActiveCanvasElement = () => {
-    return multiMode ? combinedCanvasRef.current : maskCanvasRef.current;
-  };
+      mctx.putImageData(maskData, 0, 0);
+    },
+    [origCanvasRef, getActiveCanvasRef],
+  );
 
   return (
     <div>
       <div className="flex flex-row gap-4">
         <canvas ref={origCanvasRef} className="border border-gray-300 rounded max-w-[45%]" />
 
-        {/* Mask Canvas - only interactive when multiMode is false */}
+        {/* Mask Canvas - interactive in both modes */}
         <div className="relative max-w-[45%]">
           <canvas
             ref={maskCanvasRef}
-            className="border border-gray-300 rounded w-full"
-            onMouseDown={!multiMode ? handleBrush : undefined}
-            onMouseMove={!multiMode ? handleMouseMove : undefined}
-            onMouseEnter={!multiMode ? handleMouseEnter : undefined}
-            onMouseLeave={!multiMode ? handleMouseLeave : undefined}
-            style={{ cursor: !multiMode ? 'none' : 'default' }}
+            className={`border border-gray-300 rounded w-full ${
+              multiMode && activeCanvas === 'mask' ? 'ring-2 ring-blue-500' : ''
+            }`}
+            onMouseDown={(e) => handleBrush(e, maskCanvasRef)}
+            onMouseMove={(e) => handleMouseMove(e, maskCanvasRef, overlayCanvasRef)}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={() => handleMouseLeave(overlayCanvasRef)}
+            style={{ cursor: 'none' }}
           />
-          {!multiMode && (
-            <canvas
-              ref={overlayCanvasRef}
-              className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
-              style={{ zIndex: 10 }}
-            />
-          )}
+          <canvas
+            ref={overlayCanvasRef}
+            className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
+            style={{ zIndex: 10 }}
+          />
         </div>
       </div>
+
+      {multiMode && (
+        <div className="flex justify-center mt-4">
+          <div className="bg-gray-100 rounded-lg p-1 flex">
+            <button
+              type="button"
+              onClick={() => setActiveCanvas('mask')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                activeCanvas === 'mask'
+                  ? 'bg-white shadow text-blue-600 font-medium'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Edit Mask Canvas
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveCanvas('combined')}
+              className={`px-4 py-2 rounded-md transition-colors ${
+                activeCanvas === 'combined'
+                  ? 'bg-white shadow text-blue-600 font-medium'
+                  : 'text-gray-600 hover:text-gray-800'
+              }`}
+            >
+              Edit Combined Canvas
+            </button>
+          </div>
+        </div>
+      )}
 
       {!multiMode && (
         <div className="flex justify-end items-center gap-4 mr-[8vw]">
@@ -230,8 +265,8 @@ export default function CanvasPair({
             <option value="add">Add from original</option>
           </select>
           <button
-            onClick={handleInvertMask}
-            title="Download Mask"
+            onClick={() => handleInvertMask(maskCanvasRef)}
+            title="Invert Mask"
             className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
             type="button"
           >
@@ -275,7 +310,6 @@ export default function CanvasPair({
         </div>
       )}
 
-      {/* Multi-mode section */}
       {multiMode && (
         <>
           <div className="relative">
@@ -291,21 +325,22 @@ export default function CanvasPair({
           <div className="relative mt-5 max-w-[45%]">
             <canvas
               ref={combinedCanvasRef}
-              className="border border-gray-300 rounded w-full"
-              onMouseDown={handleBrush}
-              onMouseMove={handleMouseMove}
+              className={`border border-gray-300 rounded w-full ${
+                activeCanvas === 'combined' ? 'ring-2 ring-blue-500' : ''
+              }`}
+              onMouseDown={(e) => handleBrush(e, combinedCanvasRef)}
+              onMouseMove={(e) => handleMouseMove(e, combinedCanvasRef, combinedOverlayCanvasRef)}
               onMouseEnter={handleMouseEnter}
-              onMouseLeave={handleMouseLeave}
+              onMouseLeave={() => handleMouseLeave(combinedOverlayCanvasRef)}
               style={{ cursor: 'none' }}
             />
             <canvas
-              ref={overlayCanvasRef}
+              ref={combinedOverlayCanvasRef}
               className="absolute top-0 left-0 w-full h-full pointer-events-none border border-gray-300 rounded"
               style={{ zIndex: 10 }}
             />
           </div>
 
-          {/* Controls for combined canvas in multiMode */}
           <div className="flex justify-end items-center gap-4 mr-[8vw]">
             <select
               value={brushMode}
@@ -316,16 +351,16 @@ export default function CanvasPair({
               <option value="add">Add from original</option>
             </select>
             <button
-              onClick={handleInvertMask}
-              title="Download Mask"
+              onClick={() => handleInvertMask(activeCanvas === 'mask' ? maskCanvasRef : combinedCanvasRef)}
+              title="Invert Active Canvas"
               className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
               type="button"
             >
               <span className="material-symbols-outlined">change_circle</span>
             </button>
             <button
-              onClick={() => downloadMask(combinedCanvasRef)}
-              title="Download Mask"
+              onClick={() => downloadMask(activeCanvas === 'mask' ? maskCanvasRef : combinedCanvasRef)}
+              title="Download Active Canvas"
               className="bg-white border border-gray-300 mt-4 rounded-full px-3 py-1 flex justify-center items-center shadow hover:bg-gray-100"
               type="button"
             >
