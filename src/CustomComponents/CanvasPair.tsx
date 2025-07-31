@@ -33,16 +33,19 @@ export default function CanvasPair({
   const [brushMode, setBrushMode] = useState<'erase' | 'add'>('erase');
   const [activeCanvas, setActiveCanvas] = useState<'mask' | 'combined'>('mask');
 
+  // Get the active canvas based on multiMode and activeCanvas selection
   const getActiveCanvasRef = useCallback(() => {
     if (!multiMode) return maskCanvasRef;
     return activeCanvas === 'mask' ? maskCanvasRef : combinedCanvasRef;
   }, [multiMode, activeCanvas, maskCanvasRef, combinedCanvasRef]);
 
+  // Get the appropriate overlay canvas based on active canvas
   const getActiveOverlayRef = useCallback(() => {
     if (!multiMode) return overlayCanvasRef;
     return activeCanvas === 'mask' ? overlayCanvasRef : combinedOverlayCanvasRef;
   }, [multiMode, activeCanvas]);
 
+  /* Get the coordinates of the mouse event relative to the active canvas */
   const getCanvasCoordinates = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
       const activeCanvasRef = getActiveCanvasRef();
@@ -57,6 +60,7 @@ export default function CanvasPair({
     [getActiveCanvasRef],
   );
 
+  /* Draw a preview of the brush on the overlay canvas */
   const drawBrushPreview = useCallback(
     (displayX: number, displayY: number, targetOverlay?: React.RefObject<HTMLCanvasElement>) => {
       const overlay = targetOverlay?.current || getActiveOverlayRef().current;
@@ -103,8 +107,9 @@ export default function CanvasPair({
     [brushSize, isHovering, getActiveCanvasRef, getActiveOverlayRef],
   );
 
+  /* Handle brush actions for adding or erasing */
   const handleBrush = useCallback(
-    (e: React.MouseEvent<HTMLCanvasElement>, targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasEvent>, targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
       const canvasRef = targetCanvas || getActiveCanvasRef();
       const { x, y } = getCanvasCoordinates(e);
       const mc = canvasRef.current!;
@@ -117,8 +122,26 @@ export default function CanvasPair({
       } else {
         const oc = origCanvasRef.current!;
         const octx = oc.getContext('2d')!;
-        const imgData = octx.getImageData(Math.max(0, x - half), Math.max(0, y - half), brushSize, brushSize);
-        ctx.putImageData(imgData, x - half, y - half);
+
+        // Calculate safe bounds for getImageData
+        const sourceX = Math.max(0, Math.floor(x - half));
+        const sourceY = Math.max(0, Math.floor(y - half));
+        const maxWidth = Math.min(brushSize, oc.width - sourceX);
+        const maxHeight = Math.min(brushSize, oc.height - sourceY);
+
+        // Only proceed if we have valid dimensions
+        if (maxWidth > 0 && maxHeight > 0) {
+          const imgData = octx.getImageData(sourceX, sourceY, maxWidth, maxHeight);
+
+          // Calculate destination position, ensuring it's within bounds
+          const destX = Math.max(0, Math.floor(x - half));
+          const destY = Math.max(0, Math.floor(y - half));
+
+          // Ensure destination is within canvas bounds
+          if (destX < mc.width && destY < mc.height) {
+            ctx.putImageData(imgData, destX, destY);
+          }
+        }
       }
     },
     [brushSize, brushMode, getCanvasCoordinates, origCanvasRef, getActiveCanvasRef],
@@ -157,6 +180,7 @@ export default function CanvasPair({
     [getActiveOverlayRef],
   );
 
+  /* Handle brush size changes and redraw the preview */
   const handleBrushSizeChange = useCallback(
     (newSize: number) => {
       onBrushSizeChange(newSize);
@@ -167,6 +191,7 @@ export default function CanvasPair({
     [onBrushSizeChange, isHovering, mousePos, drawBrushPreview],
   );
 
+  /* Invert the mask by replacing white pixels with original image pixels */
   const handleInvertMask = useCallback(
     (targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
       const oc = origCanvasRef.current!;
@@ -225,6 +250,7 @@ export default function CanvasPair({
         </div>
       </div>
 
+      {/* Canvas selection toggle for multi-mode */}
       {multiMode && (
         <div className="flex justify-center mt-4">
           <div className="bg-gray-100 rounded-lg p-1 flex">
@@ -310,6 +336,7 @@ export default function CanvasPair({
         </div>
       )}
 
+      {/* Multi-mode section */}
       {multiMode && (
         <>
           <div className="relative">
@@ -341,6 +368,7 @@ export default function CanvasPair({
             />
           </div>
 
+          {/* Controls for multi-mode */}
           <div className="flex justify-end items-center gap-4 mr-[8vw]">
             <select
               value={brushMode}
