@@ -109,7 +109,7 @@ export default function CanvasPair({
 
   /* Handle brush actions for adding or erasing */
   const handleBrush = useCallback(
-    (e: React.MouseEvent<HTMLCanvasEvent>, targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
+    (e: React.MouseEvent<HTMLCanvasElement>, targetCanvas?: React.RefObject<HTMLCanvasElement>) => {
       const canvasRef = targetCanvas || getActiveCanvasRef();
       const { x, y } = getCanvasCoordinates(e);
       const mc = canvasRef.current!;
@@ -123,21 +123,17 @@ export default function CanvasPair({
         const oc = origCanvasRef.current!;
         const octx = oc.getContext('2d')!;
 
-        // Calculate safe bounds for getImageData
         const sourceX = Math.max(0, Math.floor(x - half));
         const sourceY = Math.max(0, Math.floor(y - half));
         const maxWidth = Math.min(brushSize, oc.width - sourceX);
         const maxHeight = Math.min(brushSize, oc.height - sourceY);
 
-        // Only proceed if we have valid dimensions
         if (maxWidth > 0 && maxHeight > 0) {
           const imgData = octx.getImageData(sourceX, sourceY, maxWidth, maxHeight);
 
-          // Calculate destination position, ensuring it's within bounds
           const destX = Math.max(0, Math.floor(x - half));
           const destY = Math.max(0, Math.floor(y - half));
 
-          // Ensure destination is within canvas bounds
           if (destX < mc.width && destY < mc.height) {
             ctx.putImageData(imgData, destX, destY);
           }
@@ -229,7 +225,6 @@ export default function CanvasPair({
       <div className="flex flex-row gap-4">
         <canvas ref={origCanvasRef} className="border border-gray-300 rounded max-w-[45%]" />
 
-        {/* Mask Canvas - interactive in both modes */}
         <div className="relative max-w-[45%]">
           <canvas
             ref={maskCanvasRef}
@@ -250,7 +245,6 @@ export default function CanvasPair({
         </div>
       </div>
 
-      {/* Canvas selection toggle for multi-mode */}
       {multiMode && (
         <div className="flex justify-center mt-4">
           <div className="bg-gray-100 rounded-lg p-1 flex">
@@ -336,7 +330,6 @@ export default function CanvasPair({
         </div>
       )}
 
-      {/* Multi-mode section */}
       {multiMode && (
         <>
           <div className="relative">
@@ -368,7 +361,6 @@ export default function CanvasPair({
             />
           </div>
 
-          {/* Controls for multi-mode */}
           <div className="flex justify-end items-center gap-4 mr-[8vw]">
             <select
               value={brushMode}
