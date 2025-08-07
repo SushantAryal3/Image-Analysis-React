@@ -1,7 +1,6 @@
 /* eslint-disable no-multi-assign, react-hooks/exhaustive-deps, jsx-a11y/label-has-associated-control, camelcase */
 import { useRef, useState, useEffect, useCallback } from 'react';
 import removeSmallIslands from 'Utils/cleanup';
-import chroma from 'chroma-js';
 import SliderGroup from './SliderGroup';
 import CanvasPair from './CanvasPair';
 import SavedSettingsTable, { SavedSetting } from './SavedSettingsTable';
@@ -28,7 +27,7 @@ export default function RGBThresholdMask() {
   const [rRange, setRRange] = useState<Range2>([0, 255]);
   const [gRange, setGRange] = useState<Range2>([0, 255]);
   const [bRange, setBRange] = useState<Range2>([0, 255]);
-  const [hRange, setHRange] = useState<Range2>([0, 359]);
+  const [hRange, setHRange] = useState<Range2>([0, 360]);
   const [sRange, setSRange] = useState<Range2>([0, 100]);
   const [vRange, setVRange] = useState<Range2>([0, 100]);
 
@@ -86,28 +85,26 @@ export default function RGBThresholdMask() {
         const G = data[i + 1];
         const B = data[i + 2];
 
-        const color = chroma.rgb(R, G, B);
-        const [h, s, v] = color.hsv();
+        const r = R / 255;
+        const g = G / 255;
+        const b = B / 255;
 
-        let matchesHue = false;
-        let matchesSaturation = false;
-        let matchesValue = false;
-        matchesSaturation = s >= s0_norm && s <= s1_norm;
-        matchesValue = v >= v0_norm && v <= v1_norm;
+        const mx = Math.max(r, g, b);
+        const mn = Math.min(r, g, b);
+        const d = mx - mn;
 
-        if (s < 0.01) {
-          matchesHue = true;
-        } else {
-          const hue_deg = Number.isNaN(h) ? 0 : h;
-
-          if (h0 <= h1) {
-            matchesHue = hue_deg >= h0 && hue_deg <= h1;
-          } else {
-            matchesHue = hue_deg >= h0 || hue_deg <= h1;
-          }
+        let hh = 0;
+        if (d > 0) {
+          if (mx === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
+          else if (mx === g) hh = ((b - r) / d + 2) / 6;
+          else hh = ((r - g) / d + 4) / 6;
         }
 
-        if (matchesHue && matchesSaturation && matchesValue) {
+        const ss = mx === 0 ? 0 : d / mx;
+        const vv = mx;
+        const h_deg = hh * 360;
+
+        if (h_deg >= h0 && h_deg <= h1 && ss >= s0_norm && ss <= s1_norm && vv >= v0_norm && vv <= v1_norm) {
           out[i] = R;
           out[i + 1] = G;
           out[i + 2] = B;

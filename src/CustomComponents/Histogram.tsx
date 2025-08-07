@@ -12,7 +12,6 @@ import {
 } from 'chart.js';
 import annotationPlugin from 'chartjs-plugin-annotation';
 import { Bar } from 'react-chartjs-2';
-import chroma from 'chroma-js';
 
 ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, annotationPlugin);
 
@@ -39,7 +38,7 @@ const MAX_VALUES: Record<Channel, number> = {
   r: 255,
   g: 255,
   b: 255,
-  h: 359,
+  h: 360,
   s: 100,
   v: 100,
 };
@@ -85,24 +84,26 @@ export const HistogramChart: React.FC<HistogramProps> = ({
         const map = { r: 0, g: 1, b: 2 } as const;
         value = data[idx + map[channel]];
       } else {
-        // Use chroma.js for RGB to HSV conversion
-        const color = chroma.rgb(R, G, B);
-        const [h, s, v] = color.hsv();
-
-        if (channel === 'h') {
-          if (Number.isNaN(h) || s === 0) {
-            // eslint-disable-next-line no-continue
-            continue;
-          }
-          value = h;
-        } else if (channel === 's') {
-          value = s * 100;
-        } else {
-          value = v * 100;
+        const rv = R / 255;
+        const gv = G / 255;
+        const bv = B / 255;
+        const mx = Math.max(rv, gv, bv);
+        const mn = Math.min(rv, gv, bv);
+        const d = mx - mn;
+        let h = 0;
+        if (d > 0) {
+          if (mx === rv) h = ((gv - bv) / d + (gv < bv ? 6 : 0)) / 6;
+          else if (mx === gv) h = ((bv - rv) / d + 2) / 6;
+          else h = ((rv - gv) / d + 4) / 6;
         }
+        const s = mx === 0 ? 0 : d / mx;
+        const v = mx;
+        if (channel === 'h') value = h * 360;
+        else if (channel === 's') value = s * 100;
+        else value = v * 100;
       }
 
-      const binIndex = channel === 'h' && value >= 359.5 ? 0 : Math.min(bins - 1, Math.max(0, Math.floor(value)));
+      const binIndex = Math.min(bins - 1, Math.max(0, Math.round(value)));
       counts[binIndex]++;
     }
 
