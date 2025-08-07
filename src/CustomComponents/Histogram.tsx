@@ -1,4 +1,4 @@
-// src/CustomComponents/Histogram.tsx
+/* eslint-disable no-nested-ternary, no-continue */
 import React, { useMemo } from 'react';
 import {
   Chart as ChartJS,
@@ -38,7 +38,7 @@ const MAX_VALUES: Record<Channel, number> = {
   r: 255,
   g: 255,
   b: 255,
-  h: 360,
+  h: 359,
   s: 100,
   v: 100,
 };
@@ -60,26 +60,25 @@ export const HistogramChart: React.FC<HistogramProps> = ({
   const maxValue = MAX_VALUES[channel];
   const bins = maxValue + 1;
 
+  // Option 2: Use separate bin for "undefined" hue
   const { histPoints, histFills } = useMemo(() => {
-    const counts = new Array<number>(bins).fill(0);
+    const counts = new Array<number>(bins + 1).fill(0); // Extra bin for undefined hue
     const { data } = imageData;
     const pixelCount = data.length / 4;
+    const maxValue = channel === 'h' ? 360 : channel === 's' || channel === 'v' ? 100 : 255;
 
     for (let i = 0; i < pixelCount; i++) {
       const idx = i * 4;
       const R = data[idx];
       const G = data[idx + 1];
       const B = data[idx + 2];
-
-      if (isFurtherAnalysis) {
-        const isWhite = R === 255 && G === 255 && B === 255;
-        if (isWhite) {
-          // eslint-disable-next-line no-continue
-          continue;
-        }
+      if (isFurtherAnalysis && R === 255 && G === 255 && B === 255) {
+        continue;
       }
 
       let value: number;
+      let isUndefinedHue = false;
+
       if (channel === 'r' || channel === 'g' || channel === 'b') {
         const map = { r: 0, g: 1, b: 2 } as const;
         value = data[idx + map[channel]];
@@ -90,27 +89,44 @@ export const HistogramChart: React.FC<HistogramProps> = ({
         const mx = Math.max(rv, gv, bv);
         const mn = Math.min(rv, gv, bv);
         const d = mx - mn;
+
+        const s = mx === 0 ? 0 : d / mx;
+
+        // Mark low-saturation pixels as undefined hue
+        if (channel === 'h' && s < 0.1) {
+          isUndefinedHue = true;
+        }
+
         let h = 0;
         if (d > 0) {
-          if (mx === rv) h = ((gv - bv) / d + (gv < bv ? 6 : 0)) / 6;
-          else if (mx === gv) h = ((bv - rv) / d + 2) / 6;
-          else h = ((rv - gv) / d + 4) / 6;
+          if (mx === rv) h = ((gv - bv) / d) % 6;
+          else if (mx === gv) h = (bv - rv) / d + 2;
+          else h = (rv - gv) / d + 4;
         }
-        const s = mx === 0 ? 0 : d / mx;
+
+        h = (h / 6) % 1;
+        if (h < 0) h += 1;
+
         const v = mx;
+
         if (channel === 'h') value = h * 360;
         else if (channel === 's') value = s * 100;
         else value = v * 100;
       }
 
-      const binIndex = Math.min(bins - 1, Math.max(0, Math.round(value)));
+      let binIndex: number;
+      if (isUndefinedHue) {
+        binIndex = bins; // Last bin for undefined hue
+      } else {
+        binIndex = Math.min(bins - 1, Math.floor((value / maxValue) * bins));
+      }
       counts[binIndex]++;
     }
 
-    const histPoints = counts.map((cnt, i) => ({ x: i, y: cnt }));
+    const histPoints = counts.slice(0, bins).map((cnt, i) => ({ x: i, y: cnt })); // Exclude undefined bin from display
     const histFills = histPoints.map(({ x }) => {
       if (channel === 'h') {
-        const hue = (x / maxValue) * 360;
+        const hue = (x / bins) * 360;
         return `hsl(${hue},100%,50%)`;
       }
       return SOLID_FILLS[channel as 'r' | 'g' | 'b' | 's' | 'v'];

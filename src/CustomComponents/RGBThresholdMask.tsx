@@ -27,7 +27,7 @@ export default function RGBThresholdMask() {
   const [rRange, setRRange] = useState<Range2>([0, 255]);
   const [gRange, setGRange] = useState<Range2>([0, 255]);
   const [bRange, setBRange] = useState<Range2>([0, 255]);
-  const [hRange, setHRange] = useState<Range2>([0, 360]);
+  const [hRange, setHRange] = useState<Range2>([0, 359]);
   const [sRange, setSRange] = useState<Range2>([0, 100]);
   const [vRange, setVRange] = useState<Range2>([0, 100]);
 
@@ -91,17 +91,27 @@ export default function RGBThresholdMask() {
 
         const mx = Math.max(r, g, b);
         const mn = Math.min(r, g, b);
-        const d = mx - mn;
+        const delta = mx - mn;
 
+        const vv = mx;
+
+        let ss = 0;
+        if (mx > 0) {
+          ss = delta / mx;
+        }
         let hh = 0;
-        if (d > 0) {
-          if (mx === r) hh = ((g - b) / d + (g < b ? 6 : 0)) / 6;
-          else if (mx === g) hh = ((b - r) / d + 2) / 6;
-          else hh = ((r - g) / d + 4) / 6;
+        if (delta > 0) {
+          if (mx === r) {
+            hh = ((g - b) / delta) % 6;
+          } else if (mx === g) {
+            hh = (b - r) / delta + 2;
+          } else {
+            hh = (r - g) / delta + 4;
+          }
         }
 
-        const ss = mx === 0 ? 0 : d / mx;
-        const vv = mx;
+        hh = (hh / 6) % 1;
+        if (hh < 0) hh += 1;
         const h_deg = hh * 360;
 
         if (h_deg >= h0 && h_deg <= h1 && ss >= s0_norm && ss <= s1_norm && vv >= v0_norm && vv <= v1_norm) {
@@ -398,7 +408,7 @@ export default function RGBThresholdMask() {
     setRRange([0, 255]);
     setGRange([0, 255]);
     setBRange([0, 255]);
-    setHRange([0, 360]);
+    setHRange([0, 359]);
     setSRange([0, 100]);
     setVRange([0, 100]);
     imageDataRef.current = null;

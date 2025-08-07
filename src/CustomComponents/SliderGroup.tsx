@@ -132,7 +132,7 @@ export default function SliderGroup({
               range
               allowCross={false}
               min={0}
-              max={360}
+              max={359}
               value={hRange}
               onChange={(vals) => setHRange(vals as Range2)}
               onChangeComplete={() => applyMask()}
